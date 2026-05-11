@@ -1,0 +1,72 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-primary: #D36F2B;
+    --color-primary-light: #E88B45;
+    --color-primary-dark: #B8591F;
+    --color-bg-base: #FFFFFF;
+    --color-bg-cream: #F5F1EA;
+    --color-bg-hover: #F0EBE3;
+    --color-border: #EBE7E0;
+    --color-border-strong: #D9D2C8;
+    --color-text-primary: #1A1A1A;
+    --color-text-secondary: #444444;
+    --color-text-muted: #777777;
+  }
+
+  .dark {
+    --color-primary: #E88B45;
+    --color-primary-light: #D36F2B;
+    --color-primary-dark: #F5A55C;
+    --color-bg-base: #1A1A1A;
+    --color-bg-cream: #2A2A2A;
+    --color-bg-hover: #333333;
+    --color-border: #404040;
+    --color-border-strong: #555555;
+    --color-text-primary: #FFFFFF;
+    --color-text-secondary: #E0E0E0;
+    --color-text-muted: #A0A0A0;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background-cream text-text-secondary;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply text-text-primary font-semibold;
+  }
+}
+
+@layer components {
+  .page-container {
+    @apply px-page-mobile md:px-page-tablet lg:px-page-desktop;
+  }
+
+  .card {
+    @apply bg-background-base rounded-card shadow-card transition-all duration-200 ease-in-out;
+  }
+
+  .card:hover {
+    @apply shadow-hover transform scale-[1.01];
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center px-4 py-2 rounded-button font-medium transition-all duration-200 ease-in-out;
+  }
+
+  .btn-primary {
+    @apply bg-brand-orange text-white hover:bg-brand-dark;
+  }
+
+  .btn-secondary {
+    @apply bg-transparent border border-border-strong text-text-primary hover:bg-background-hover;
+  }
+}
