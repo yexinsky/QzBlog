@@ -208,7 +208,7 @@ export const momentLikes = pgTable(
   },
   (table) => [
     index('moment_likes_moment_id_idx').on(table.momentId),
-    unique('moment_likes_unique').on(table.momentId, table.ipAddress, table.createdAt),
+    unique('moment_likes_daily_unique').on(table.momentId, table.ipAddress),
   ]
 );
 
@@ -227,7 +227,7 @@ export const postLikes = pgTable(
   },
   (table) => [
     index('post_likes_post_id_idx').on(table.postId),
-    unique('post_likes_unique').on(table.postId, table.ipAddress, table.createdAt),
+    unique('post_likes_daily_unique').on(table.postId, table.ipAddress),
   ]
 );
 

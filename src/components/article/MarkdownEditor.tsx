@@ -117,7 +117,7 @@ export const MarkdownEditorToolbar: React.FC<MarkdownEditorToolbarProps> = ({ on
             style={{
               fontWeight: tool.bold ? 'bold' : undefined,
               fontStyle: tool.italic ? 'italic' : undefined,
-              textDecoration: 'strikethrough' ? 'line-through' : undefined
+              textDecoration: tool.strikethrough ? 'line-through' : undefined
             }}
             title={tool.title}
           >

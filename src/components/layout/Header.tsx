@@ -36,7 +36,7 @@ export const Header: React.FC = () => {
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-1">
             {navLinks.map(link => {
-              const isActive = pathname === link.href || pathname.startsWith(link.href + '/')
+              const isActive = link.href === '/' ? pathname === '/' : pathname.startsWith(link.href)
               return (
                 <Link
                   key={link.href}
@@ -97,7 +97,7 @@ export const Header: React.FC = () => {
           <nav className="md:hidden py-4 border-t border-border">
             <div className="flex flex-col space-y-1">
               {navLinks.map(link => {
-                const isActive = pathname === link.href || pathname.startsWith(link.href + '/')
+                const isActive = link.href === '/' ? pathname === '/' : pathname.startsWith(link.href)
                 return (
                   <Link
                     key={link.href}

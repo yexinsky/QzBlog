@@ -3,8 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db, schema } from '@/lib/db';
 import { eq, desc, and, sql } from 'drizzle-orm';
 import { renderCommentMarkdown } from '@/lib/markdown';
-import { withRatelimit, commentRatelimit, globalRatelimit } from '@/lib/ratelimit';
-import { getClientIP } from '@/lib/rate-limit';
+import { withRatelimit, commentRatelimit, globalRatelimit, getClientIP } from '@/lib/rate-limit';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
@@ -228,9 +227,7 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const validatedData = updateCommentSchema.parse(body);
 
-    const updateData: any = {
-      updatedAt: new Date(),
-    };
+    const updateData: any = {};
 
     if (validatedData.contentMd !== undefined) {
       updateData.contentMd = validatedData.contentMd;

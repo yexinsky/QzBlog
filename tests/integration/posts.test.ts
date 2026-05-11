@@ -148,7 +148,7 @@ const cancelScheduledPost = async (id: string): Promise<typeof mockPosts[0] | nu
     updated_at: new Date().toISOString(),
   };
 
-  return postsStore[index;
+  return postsStore[index];
 };
 
 // 辅助函数
