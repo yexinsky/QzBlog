@@ -47,7 +47,7 @@
 
 @layer components {
   .page-container {
-    @apply px-page-mobile md:px-page-tablet lg:px-page-desktop;
+    @apply px-5 md:px-8 lg:px-12;
   }
 
   .card {
