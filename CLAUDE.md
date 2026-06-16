@@ -85,6 +85,12 @@ QzhouBlog/
 - **projects** - 项目展示表
 - **milestones** - 里程碑时间线表
 - **page_views** - 访问统计表
+- **learning_routes** - 学习路线表
+- **learning_nodes** - 学习路线节点表（支持多级结构）
+- **skills** - 技能栈表（含分类、熟练度）
+- **social_links** - 社交链接表
+- **work_experience** - 工作经历表
+- **site_settings** - 站点设置表（单行设计）
 
 ## 4. API 路由设计
 
@@ -100,6 +106,10 @@ QzhouBlog/
 | GET | /api/series | 获取系列列表 |
 | GET | /api/projects | 获取项目列表 |
 | GET | /api/milestones | 获取时间线 |
+| GET | /api/learning | 获取学习路线列表 |
+| GET | /api/learning/[slug] | 获取学习路线详情 |
+| GET | /api/skills | 获取技能栈列表 |
+| GET | /api/social-links | 获取社交链接列表 |
 
 ### 管理 API (需认证)
 | 方法 | 路径 | 说明 |
@@ -113,6 +123,22 @@ QzhouBlog/
 | DELETE | /api/moments/[id] | 删除动态 |
 | PUT | /api/comments/[id] | 审核评论 |
 | POST | /api/upload | 上传图片 |
+| POST | /api/learning | 创建学习路线 |
+| PUT | /api/learning/[id] | 更新学习路线 |
+| DELETE | /api/learning/[id] | 删除学习路线 |
+| POST | /api/learning/[id]/nodes | 添加学习节点 |
+| PUT | /api/learning/nodes/[id] | 更新学习节点 |
+| DELETE | /api/learning/nodes/[id] | 删除学习节点 |
+| POST | /api/skills | 添加技能 |
+| PUT | /api/skills/[id] | 更新技能 |
+| DELETE | /api/skills/[id] | 删除技能 |
+| POST | /api/social-links | 添加社交链接 |
+| PUT | /api/social-links/[id] | 更新社交链接 |
+| DELETE | /api/social-links/[id] | 删除社交链接 |
+| POST | /api/work-experience | 添加工作经历 |
+| PUT | /api/work-experience/[id] | 更新工作经历 |
+| DELETE | /api/work-experience/[id] | 删除工作经历 |
+| PUT | /api/settings | 更新站点设置 |
 
 ## 5. 安全策略
 
