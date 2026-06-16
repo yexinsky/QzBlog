@@ -308,20 +308,26 @@ export const pageViews = pgTable(
 );
 
 // ============================================================================
-// Learning Paths Table - 学习路线表
+// Learning Routes Table - 学习路线表
 // ============================================================================
-export const learningPaths = pgTable(
-  'learning_paths',
+export const learningRoutes = pgTable(
+  'learning_routes',
   {
     id: uuid('id').primaryKey().defaultRandom(),
     title: varchar('title', { length: 200 }).notNull(),
     slug: varchar('slug', { length: 255 }).notNull().unique(),
     description: text('description'),
     coverImage: varchar('cover_image', { length: 500 }),
+    learningGoal: text('learning_goal'),
+    sortOrder: integer('sort_order').notNull().default(0),
+    isPublic: boolean('is_public').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index('learning_paths_slug_idx').on(table.slug)]
+  (table) => [
+    index('learning_routes_slug_idx').on(table.slug),
+    index('learning_routes_sort_order_idx').on(table.sortOrder),
+  ]
 );
 
 // ============================================================================
@@ -331,9 +337,10 @@ export const learningNodes = pgTable(
   'learning_nodes',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    pathId: uuid('path_id')
+    routeId: uuid('route_id')
       .notNull()
-      .references(() => learningPaths.id, { onDelete: 'cascade' }),
+      .references(() => learningRoutes.id, { onDelete: 'cascade' }),
+    parentId: uuid('parent_id').references((): any => learningNodes.id, { onDelete: 'cascade' }),
     title: varchar('title', { length: 200 }).notNull(),
     description: text('description'),
     status: varchar('status', { length: 20 }).notNull().default('planned'),
@@ -343,10 +350,93 @@ export const learningNodes = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    index('learning_nodes_path_id_idx').on(table.pathId),
+    index('learning_nodes_route_id_idx').on(table.routeId),
+    index('learning_nodes_parent_id_idx').on(table.parentId),
     index('learning_nodes_sort_order_idx').on(table.sortOrder),
     check('learning_nodes_status_check', `"status" IN ('planned', 'learning', 'completed')`),
   ]
+);
+
+// ============================================================================
+// Skills Table - 技能栈表
+// ============================================================================
+export const skills = pgTable(
+  'skills',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: varchar('name', { length: 50 }).notNull().unique(),
+    icon: varchar('icon', { length: 500 }),
+    color: varchar('color', { length: 7 }),
+    category: varchar('category', { length: 50 }),
+    proficiency: integer('proficiency').default(0),
+    sortOrder: integer('sort_order').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('skills_category_idx').on(table.category),
+    index('skills_sort_order_idx').on(table.sortOrder),
+    check('skills_proficiency_check', '"proficiency" BETWEEN 0 AND 100'),
+  ]
+);
+
+// ============================================================================
+// Social Links Table - 社交链接表
+// ============================================================================
+export const socialLinks = pgTable(
+  'social_links',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    platform: varchar('platform', { length: 50 }).notNull(),
+    url: varchar('url', { length: 500 }).notNull(),
+    icon: varchar('icon', { length: 500 }),
+    sortOrder: integer('sort_order').notNull().default(0),
+    isVisible: boolean('is_visible').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('social_links_sort_order_idx').on(table.sortOrder),
+  ]
+);
+
+// ============================================================================
+// Work Experience Table - 工作经历表
+// ============================================================================
+export const workExperience = pgTable(
+  'work_experience',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    company: varchar('company', { length: 200 }).notNull(),
+    position: varchar('position', { length: 200 }).notNull(),
+    startDate: date('start_date').notNull(),
+    endDate: date('end_date'),
+    description: text('description'),
+    sortOrder: integer('sort_order').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('work_experience_sort_order_idx').on(table.sortOrder),
+  ]
+);
+
+// ============================================================================
+// Site Settings Table - 站点设置表
+// ============================================================================
+export const siteSettings = pgTable(
+  'site_settings',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    siteName: varchar('site_name', { length: 100 }).notNull().default('QzBlog'),
+    siteDescription: varchar('site_description', { length: 500 }),
+    siteLogo: varchar('site_logo', { length: 500 }),
+    siteFavicon: varchar('site_favicon', { length: 500 }),
+    avatarUrl: varchar('avatar_url', { length: 500 }),
+    bio: text('bio'),
+    darkModeDefault: boolean('dark_mode_default').notNull().default(false),
+    icp备案号: varchar('icp备案号', { length: 100 }),
+    customCss: text('custom_css'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  }
 );
 
 // ============================================================================
@@ -440,15 +530,21 @@ export const milestonesRelations = relations(milestones, ({}) => ({}));
 
 export const pageViewsRelations = relations(pageViews, ({}) => ({}));
 
-export const learningPathsRelations = relations(learningPaths, ({ many }) => ({
+export const learningRoutesRelations = relations(learningRoutes, ({ many }) => ({
   nodes: many(learningNodes),
 }));
 
-export const learningNodesRelations = relations(learningNodes, ({ one }) => ({
-  path: one(learningPaths, {
-    fields: [learningNodes.pathId],
-    references: [learningPaths.id],
+export const learningNodesRelations = relations(learningNodes, ({ one, many }) => ({
+  route: one(learningRoutes, {
+    fields: [learningNodes.routeId],
+    references: [learningRoutes.id],
   }),
+  parent: one(learningNodes, {
+    fields: [learningNodes.parentId],
+    references: [learningNodes.id],
+    relationName: 'parentChild',
+  }),
+  children: many(learningNodes, { relationName: 'parentChild' }),
   post: one(posts, {
     fields: [learningNodes.postId],
     references: [posts.id],
@@ -483,7 +579,15 @@ export type Milestone = typeof milestones.$inferSelect;
 export type NewMilestone = typeof milestones.$inferInsert;
 export type PageView = typeof pageViews.$inferSelect;
 export type NewPageView = typeof pageViews.$inferInsert;
-export type LearningPath = typeof learningPaths.$inferSelect;
-export type NewLearningPath = typeof learningPaths.$inferInsert;
+export type LearningRoute = typeof learningRoutes.$inferSelect;
+export type NewLearningRoute = typeof learningRoutes.$inferInsert;
 export type LearningNode = typeof learningNodes.$inferSelect;
 export type NewLearningNode = typeof learningNodes.$inferInsert;
+export type Skill = typeof skills.$inferSelect;
+export type NewSkill = typeof skills.$inferInsert;
+export type SocialLink = typeof socialLinks.$inferSelect;
+export type NewSocialLink = typeof socialLinks.$inferInsert;
+export type WorkExperience = typeof workExperience.$inferSelect;
+export type NewWorkExperience = typeof workExperience.$inferInsert;
+export type SiteSettings = typeof siteSettings.$inferSelect;
+export type NewSiteSettings = typeof siteSettings.$inferInsert;

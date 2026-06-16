@@ -1,4 +1,25 @@
-# PRD 完善记录
+# Ralph Progress Log
+
+## Codebase Patterns
+- 使用 Drizzle ORM 定义数据库 Schema
+- 所有表使用 UUID 作为主键
+- 时间戳字段使用 timestamp with time zone
+- 使用 index() 和 check() 约束
+
+---
+
+## 2026-06-16 - US-001 数据库 Schema 设计与迁移
+- 完成所有 19 张表的 Schema 定义
+- 新增 learning_routes、learning_nodes 表（支持多级结构）
+- 新增 skills、social_links、work_experience 表
+- 新增 site_settings 表（单行设计）
+- 生成 Drizzle 迁移文件：drizzle/0000_round_giant_girl.sql
+- **Learnings for future iterations:**
+  - learningRoutes 表名与 PRD 中 learning_routes 一致
+  - learningNodes 支持 parent_id 自引用实现多级结构
+  - skills 表包含 proficiency 字段（0-100）用于熟练度展示
+  - site_settings 采用单行设计，仅存储一条配置记录
+---
 
 ## 2026-06-16 完善内容
 
