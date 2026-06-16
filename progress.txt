@@ -221,6 +221,19 @@
   - 头像 URL 支持预览
 ---
 
+## 2026-06-16 - US-018 Docker Compose 部署配置
+- 创建 Dockerfile（多阶段构建）
+- 创建 docker-compose.yml（应用、PostgreSQL、MinIO、Nginx）
+- 创建 Nginx 配置（反向代理、HTTPS、安全头、限流）
+- 更新 .env.example（环境变量）
+- 创建 .dockerignore
+- **Learnings for future iterations:**
+  - Dockerfile 使用多阶段构建优化镜像大小
+  - Nginx 配置包含 HTTPS、安全头、限流
+  - PostgreSQL 使用 healthcheck 确保就绪
+  - MinIO 提供 S3 兼容的对象存储
+---
+
 ## 2026-06-16 完善内容
 
 ### 1. 学习路线数据模型补充
