@@ -37,7 +37,7 @@
         "未认证请求重定向至登录页",
         "TypeScript 类型检查通过"
       ],
-      "passes": false,
+      "passes": true,
       "priority": 2
     },
     {

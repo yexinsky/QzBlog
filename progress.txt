@@ -21,6 +21,16 @@
   - site_settings 采用单行设计，仅存储一条配置记录
 ---
 
+## 2026-06-16 - US-002 NextAuth.js 认证配置
+- 修复环境变量名称（GITHUB_ID/GITHUB_SECRET）
+- 创建 Middleware 拦截 /admin/* 和 /api/admin/* 路由
+- 创建登录页面（支持 GitHub OAuth 和管理员账号登录）
+- **Learnings for future iterations:**
+  - 使用 withAuth 中间件保护管理后台路由
+  - 登录页面支持两种登录方式：GitHub OAuth 和管理员账号
+  - 管理员账号通过环境变量 ADMIN_USERNAME/ADMIN_PASSWORD 配置
+---
+
 ## 2026-06-16 完善内容
 
 ### 1. 学习路线数据模型补充
