@@ -206,7 +206,7 @@
         "TypeScript 类型检查通过",
         "Verify in browser using dev-browser skill"
       ],
-      "passes": false,
+      "passes": true,
       "priority": 12
     },
     {

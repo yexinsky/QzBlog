@@ -28,18 +28,38 @@ interface ThemeProviderProps {
 
 export const ThemeProvider: React.FC<ThemeProviderProps> = ({
   children,
-  defaultTheme = 'light',
+  defaultTheme,
   storageKey = 'qzhou-blog-theme'
 }) => {
-  const [theme, setTheme] = useState<Theme>(defaultTheme)
+  const [theme, setTheme] = useState<Theme>(defaultTheme || 'light')
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
     setMounted(true)
+
+    // 从 localStorage 读取用户选择
     const storedTheme = localStorage.getItem(storageKey) as Theme
+
     if (storedTheme) {
+      // 如果有用户选择，使用用户选择
       setTheme(storedTheme)
+    } else {
+      // 如果没有用户选择，跟随系统偏好
+      const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+      setTheme(systemPrefersDark ? 'dark' : 'light')
     }
+
+    // 监听系统主题变化
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+    const handleChange = (e: MediaQueryListEvent) => {
+      // 只有在没有用户选择时才跟随系统
+      if (!localStorage.getItem(storageKey)) {
+        setTheme(e.matches ? 'dark' : 'light')
+      }
+    }
+
+    mediaQuery.addEventListener('change', handleChange)
+    return () => mediaQuery.removeEventListener('change', handleChange)
   }, [storageKey])
 
   useEffect(() => {
