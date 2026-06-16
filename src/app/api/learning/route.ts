@@ -8,15 +8,17 @@ import { withRatelimit, globalRatelimit } from '@/lib/ratelimit';
 import { generateSlug } from '@/lib/markdown';
 
 // Validation schemas
-const createLearningPathSchema = z.object({
+const createLearningRouteSchema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().optional(),
+  learningGoal: z.string().optional(),
   coverImage: z.string().url().optional(),
 });
 
-const updateLearningPathSchema = z.object({
+const updateLearningRouteSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   description: z.string().optional().nullable(),
+  learningGoal: z.string().optional().nullable(),
   coverImage: z.string().url().optional().nullable(),
 });
 
@@ -29,11 +31,12 @@ export async function GET(request: NextRequest) {
       return ratelimitCheck.response!;
     }
 
-    const learningPaths = await db.query.learningPaths.findMany({
-      orderBy: [desc(schema.learningPaths.createdAt)],
+    const learningRoutes = await db.query.learningRoutes.findMany({
+      where: eq(schema.learningRoutes.isPublic, true),
+      orderBy: [desc(schema.learningRoutes.sortOrder), desc(schema.learningRoutes.createdAt)],
       with: {
         nodes: {
-          orderBy: [desc(schema.learningNodes.sortOrder)],
+          orderBy: [schema.learningNodes.sortOrder],
           with: {
             post: {
               columns: {
@@ -48,24 +51,24 @@ export async function GET(request: NextRequest) {
     });
 
     // 计算进度
-    const pathsWithProgress = learningPaths.map((path) => {
-      const totalNodes = path.nodes?.length || 0;
-      const completedNodes = path.nodes?.filter((n) => n.status === 'completed').length || 0;
+    const routesWithProgress = learningRoutes.map((route) => {
+      const totalNodes = route.nodes?.length || 0;
+      const completedNodes = route.nodes?.filter((n) => n.status === 'completed').length || 0;
       const progress = totalNodes > 0 ? Math.round((completedNodes / totalNodes) * 100) : 0;
 
       return {
-        ...path,
+        ...route,
         totalNodes,
         completedNodes,
         progress,
       };
     });
 
-    return NextResponse.json({ learningPaths: pathsWithProgress });
+    return NextResponse.json({ learningRoutes: routesWithProgress });
   } catch (error) {
-    console.error('Error fetching learning paths:', error);
+    console.error('Error fetching learning routes:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch learning paths' },
+      { error: 'Failed to fetch learning routes' },
       { status: 500 }
     );
   }
@@ -84,31 +87,32 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const validatedData = createLearningPathSchema.parse(body);
+    const validatedData = createLearningRouteSchema.parse(body);
 
     // 生成slug
     let slug = generateSlug(validatedData.title);
 
     // 检查唯一性
-    const existingPath = await db.query.learningPaths.findFirst({
-      where: eq(schema.learningPaths.slug, slug),
+    const existingRoute = await db.query.learningRoutes.findFirst({
+      where: eq(schema.learningRoutes.slug, slug),
     });
 
-    if (existingPath) {
+    if (existingRoute) {
       slug = `${slug}-${Date.now().toString(36)}`;
     }
 
-    const newPath = await db
-      .insert(schema.learningPaths)
+    const newRoute = await db
+      .insert(schema.learningRoutes)
       .values({
         title: validatedData.title,
         slug,
         description: validatedData.description,
+        learningGoal: validatedData.learningGoal,
         coverImage: validatedData.coverImage,
       })
       .returning();
 
-    return NextResponse.json(newPath[0], { status: 201 });
+    return NextResponse.json(newRoute[0], { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -117,9 +121,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.error('Error creating learning path:', error);
+    console.error('Error creating learning route:', error);
     return NextResponse.json(
-      { error: 'Failed to create learning path' },
+      { error: 'Failed to create learning route' },
       { status: 500 }
     );
   }
