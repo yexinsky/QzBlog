@@ -43,6 +43,22 @@
   - 草稿 API 支持部分更新
 ---
 
+## 2026-06-16 - US-004 Markdown 编辑器
+- 创建文章列表页面（/admin/posts）
+- 创建新建文章页面（/admin/posts/new）
+- 创建编辑文章页面（/admin/posts/[id]/edit）
+- 创建 Markdown 预览 API
+- 实现分栏布局（左编辑 / 右预览）
+- 实现工具栏快捷插入
+- 实现快捷键支持（Ctrl+S 保存、Ctrl+Shift+P 发布）
+- 实现每 30 秒自动保存草稿
+- **Learnings for future iterations:**
+  - 使用 @uiw/react-codemirror 集成 CodeMirror 6
+  - 编辑器支持暗色/亮色主题切换
+  - 预览功能通过 API 渲染 Markdown 为 HTML
+  - 自动保存使用 setInterval 实现
+---
+
 ## 2026-06-16 完善内容
 
 ### 1. 学习路线数据模型补充
