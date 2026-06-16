@@ -72,6 +72,19 @@
   - Mermaid 图表渲染需要在后续版本中添加
 ---
 
+## 2026-06-16 - US-006 文章详情页与 TOC
+- 创建文章详情页（/posts/[slug]）
+- 实现 TOC 组件（桌面端固定侧边，移动端悬浮按钮）
+- 实现系列导航（上一篇/下一篇）
+- 创建 LikeButton 和 ShareButtons 组件
+- 更新阅读量统计
+- **Learnings for future iterations:**
+  - 使用 IntersectionObserver 实现滚动高亮
+  - 移动端 TOC 使用抽屉形式展示
+  - 系列导航从 seriesPosts 表中获取上下篇
+  - 阅读量更新使用简单的 UPDATE 语句
+---
+
 ## 2026-06-16 完善内容
 
 ### 1. 学习路线数据模型补充
