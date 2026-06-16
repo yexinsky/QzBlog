@@ -189,7 +189,7 @@ export default function AdminPostsPage() {
                           </td>
                           <td className="py-3 px-4">
                             <div className="flex items-center justify-end gap-2">
-                              <Link href={`/admin/posts/${post.id}/edit`}>
+                              <Link href={`/admin/posts/${post.slug}/edit`}>
                                 <Button variant="ghost" size="sm">
                                   <Edit className="w-4 h-4" />
                                 </Button>

@@ -16,7 +16,7 @@ const draftSchema = z.object({
 // 保存草稿
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { slug: string } }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -28,13 +28,13 @@ export async function POST(
       );
     }
 
-    const { id } = params;
+    const { slug } = params;
     const body = await request.json();
     const validatedData = draftSchema.parse(body);
 
     // 查找现有文章
     const existingPost = await db.query.posts.findFirst({
-      where: eq(schema.posts.id, id),
+      where: eq(schema.posts.slug, slug),
     });
 
     if (!existingPost) {
@@ -86,7 +86,7 @@ export async function POST(
     const updatedPost = await db
       .update(schema.posts)
       .set(updateData)
-      .where(eq(schema.posts.id, id))
+      .where(eq(schema.posts.id, existingPost.id))
       .returning();
 
     return NextResponse.json({
@@ -114,7 +114,7 @@ export async function POST(
 // 获取草稿
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { slug: string } }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -126,10 +126,10 @@ export async function GET(
       );
     }
 
-    const { id } = params;
+    const { slug } = params;
 
     const post = await db.query.posts.findFirst({
-      where: eq(schema.posts.id, id),
+      where: eq(schema.posts.slug, slug),
       columns: {
         id: true,
         title: true,
@@ -153,11 +153,7 @@ export async function GET(
 
     // 检查权限
     if (post.status === 'draft') {
-      const existingPost = await db.query.posts.findFirst({
-        where: eq(schema.posts.id, id),
-      });
-
-      if (existingPost && existingPost.authorId !== session.user.id && session.user.role !== 'admin') {
+      if (post.authorId !== session.user.id && session.user.role !== 'admin') {
         return NextResponse.json(
           { error: 'Post not found' },
           { status: 404 }

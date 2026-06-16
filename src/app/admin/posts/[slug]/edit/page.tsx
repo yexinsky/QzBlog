@@ -12,7 +12,7 @@ import { Save, Eye, Send, Clock, ArrowLeft, Trash2 } from 'lucide-react';
 export default function EditPostPage() {
   const router = useRouter();
   const params = useParams();
-  const postId = params.id as string;
+  const slug = params.id as string;
 
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -26,7 +26,7 @@ export default function EditPostPage() {
 
   useEffect(() => {
     fetchPost();
-  }, [postId]);
+  }, [slug]);
 
   // 自动保存草稿
   useEffect(() => {
@@ -59,7 +59,7 @@ export default function EditPostPage() {
 
   const fetchPost = async () => {
     try {
-      const response = await fetch(`/api/posts/${postId}/draft`);
+      const response = await fetch(`/api/posts/${slug}/draft`);
       if (response.ok) {
         const data = await response.json();
         setTitle(data.title || '');
@@ -83,7 +83,7 @@ export default function EditPostPage() {
     if (!title && !content) return;
 
     try {
-      const response = await fetch(`/api/posts/${postId}/draft`, {
+      const response = await fetch(`/api/posts/${slug}/draft`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -109,7 +109,7 @@ export default function EditPostPage() {
 
     setIsSaving(true);
     try {
-      const response = await fetch(`/api/posts/${postId}/draft`, {
+      const response = await fetch(`/api/posts/${slug}/draft`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -150,7 +150,7 @@ export default function EditPostPage() {
 
     setIsSaving(true);
     try {
-      const response = await fetch(`/api/posts/${postId}`, {
+      const response = await fetch(`/api/posts/${slug}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -181,7 +181,7 @@ export default function EditPostPage() {
     }
 
     try {
-      const response = await fetch(`/api/posts/${postId}`, {
+      const response = await fetch(`/api/posts/${slug}`, {
         method: 'DELETE',
       });
 
