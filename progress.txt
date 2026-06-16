@@ -31,6 +31,18 @@
   - 管理员账号通过环境变量 ADMIN_USERNAME/ADMIN_PASSWORD 配置
 ---
 
+## 2026-06-16 - US-003 文章 CRUD API
+- 文章 CRUD API 已经完全实现
+- 支持 GET（列表）、POST（创建）、GET（单篇）、PUT（更新）、DELETE（删除）
+- 支持草稿保存和获取
+- 使用 Zod 进行输入验证
+- **Learnings for future iterations:**
+  - 文章列表支持分页、标签筛选、系列筛选、关键词搜索
+  - 创建文章时自动渲染 Markdown 为 HTML
+  - 自动生成 slug、字数、摘要
+  - 草稿 API 支持部分更新
+---
+
 ## 2026-06-16 完善内容
 
 ### 1. 学习路线数据模型补充
