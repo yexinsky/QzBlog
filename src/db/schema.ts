@@ -13,7 +13,7 @@ import {
   index,
   check,
 } from 'drizzle-orm/pg-core';
-import { relations } from 'drizzle-orm';
+import { relations, sql } from 'drizzle-orm';
 
 // ============================================================================
 // Users Table - 博主用户表
@@ -57,13 +57,13 @@ export const posts = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
-    index('posts_author_id_idx').on(table.authorId),
-    index('posts_slug_idx').on(table.slug),
-    index('posts_status_idx').on(table.status),
-    index('posts_published_at_idx').on(table.publishedAt),
-    check('posts_status_check', `"status" IN ('draft', 'published', 'scheduled')`),
-  ]
+  (table) => ({
+    authorIdIdx: index('posts_author_id_idx').on(table.authorId),
+    slugIdx: index('posts_slug_idx').on(table.slug),
+    statusIdx: index('posts_status_idx').on(table.status),
+    publishedAtIdx: index('posts_published_at_idx').on(table.publishedAt),
+    statusCheck: check('posts_status_check', sql`"status" IN ('draft', 'published', 'scheduled')`),
+  })
 );
 
 // ============================================================================
@@ -78,7 +78,7 @@ export const tags = pgTable(
     color: varchar('color', { length: 7 }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index('tags_slug_idx').on(table.slug)]
+  (table) => ({ slugIdx: index('tags_slug_idx').on(table.slug) })
 );
 
 // ============================================================================
@@ -94,7 +94,10 @@ export const postTags = pgTable(
       .notNull()
       .references(() => tags.id, { onDelete: 'cascade' }),
   },
-  (table) => [index('post_tags_post_id_idx').on(table.postId), index('post_tags_tag_id_idx').on(table.tagId)]
+  (table) => ({
+    postIdIdx: index('post_tags_post_id_idx').on(table.postId),
+    tagIdIdx: index('post_tags_tag_id_idx').on(table.tagId),
+  })
 );
 
 // ============================================================================
@@ -113,11 +116,11 @@ export const series = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
-    index('series_slug_idx').on(table.slug),
-    index('series_is_pinned_idx').on(table.isPinned),
-    index('series_sort_order_idx').on(table.sortOrder),
-  ]
+  (table) => ({
+    slugIdx: index('series_slug_idx').on(table.slug),
+    isPinnedIdx: index('series_is_pinned_idx').on(table.isPinned),
+    sortOrderIdx: index('series_sort_order_idx').on(table.sortOrder),
+  })
 );
 
 // ============================================================================
@@ -137,11 +140,11 @@ export const seriesPosts = pgTable(
     sortOrder: integer('sort_order').notNull().default(0),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
-    index('series_posts_series_id_idx').on(table.seriesId),
-    index('series_posts_post_id_idx').on(table.postId),
-    index('series_posts_sort_order_idx').on(table.sortOrder),
-  ]
+  (table) => ({
+    seriesIdIdx: index('series_posts_series_id_idx').on(table.seriesId),
+    postIdIdx: index('series_posts_post_id_idx').on(table.postId),
+    sortOrderIdx: index('series_posts_sort_order_idx').on(table.sortOrder),
+  })
 );
 
 // ============================================================================
@@ -166,15 +169,15 @@ export const comments = pgTable(
     ipAddress: varchar('ip_address', { length: 45 }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
-    index('comments_post_id_idx').on(table.postId),
-    index('comments_parent_id_idx').on(table.parentId),
-    index('comments_root_id_idx').on(table.rootId),
-    index('comments_status_idx').on(table.status),
-    index('comments_created_at_idx').on(table.createdAt),
-    check('comments_depth_check', '"depth" BETWEEN 0 AND 1'),
-    check('comments_status_check', `"status" IN ('pending', 'approved', 'rejected')`),
-  ]
+  (table) => ({
+    postIdIdx: index('comments_post_id_idx').on(table.postId),
+    parentIdIdx: index('comments_parent_id_idx').on(table.parentId),
+    rootIdIdx: index('comments_root_id_idx').on(table.rootId),
+    statusIdx: index('comments_status_idx').on(table.status),
+    createdAtIdx: index('comments_created_at_idx').on(table.createdAt),
+    depthCheck: check('comments_depth_check', sql`"depth" BETWEEN 0 AND 1`),
+    statusCheck: check('comments_status_check', sql`"status" IN ('pending', 'approved', 'rejected')`),
+  })
 );
 
 // ============================================================================
@@ -190,7 +193,7 @@ export const moments = pgTable(
     publishedAt: timestamp('published_at', { withTimezone: true }).notNull().defaultNow(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index('moments_published_at_idx').on(table.publishedAt)]
+  (table) => ({ publishedAtIdx: index('moments_published_at_idx').on(table.publishedAt) })
 );
 
 // ============================================================================
@@ -206,10 +209,10 @@ export const momentLikes = pgTable(
     ipAddress: varchar('ip_address', { length: 45 }).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
-    index('moment_likes_moment_id_idx').on(table.momentId),
-    unique('moment_likes_daily_unique').on(table.momentId, table.ipAddress),
-  ]
+  (table) => ({
+    momentIdIdx: index('moment_likes_moment_id_idx').on(table.momentId),
+    dailyUnique: unique('moment_likes_daily_unique').on(table.momentId, table.ipAddress),
+  })
 );
 
 // ============================================================================
@@ -225,10 +228,10 @@ export const postLikes = pgTable(
     ipAddress: varchar('ip_address', { length: 45 }).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
-    index('post_likes_post_id_idx').on(table.postId),
-    unique('post_likes_daily_unique').on(table.postId, table.ipAddress),
-  ]
+  (table) => ({
+    postIdIdx: index('post_likes_post_id_idx').on(table.postId),
+    dailyUnique: unique('post_likes_daily_unique').on(table.postId, table.ipAddress),
+  })
 );
 
 // ============================================================================
@@ -250,10 +253,10 @@ export const projects = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
-    index('projects_is_featured_idx').on(table.isFeatured),
-    index('projects_sort_order_idx').on(table.sortOrder),
-  ]
+  (table) => ({
+    isFeaturedIdx: index('projects_is_featured_idx').on(table.isFeatured),
+    sortOrderIdx: index('projects_sort_order_idx').on(table.sortOrder),
+  })
 );
 
 // ============================================================================
@@ -273,15 +276,15 @@ export const milestones = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
-    index('milestones_event_date_idx').on(table.eventDate),
-    index('milestones_event_type_idx').on(table.eventType),
-    index('milestones_sort_order_idx').on(table.sortOrder),
-    check(
+  (table) => ({
+    eventDateIdx: index('milestones_event_date_idx').on(table.eventDate),
+    eventTypeIdx: index('milestones_event_type_idx').on(table.eventType),
+    sortOrderIdx: index('milestones_sort_order_idx').on(table.sortOrder),
+    eventTypeCheck: check(
       'milestones_event_type_check',
-      `"event_type" IN ('work', 'study', 'open_source', 'speech', 'other')`
+      sql`"event_type" IN ('work', 'study', 'open_source', 'speech', 'other')`
     ),
-  ]
+  })
 );
 
 // ============================================================================
@@ -300,11 +303,11 @@ export const pageViews = pgTable(
     country: varchar('country', { length: 100 }),
     visitedAt: timestamp('visited_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
-    index('page_views_page_type_idx').on(table.pageType),
-    index('page_views_page_id_idx').on(table.pageId),
-    index('page_views_visited_at_idx').on(table.visitedAt),
-  ]
+  (table) => ({
+    pageTypeIdx: index('page_views_page_type_idx').on(table.pageType),
+    pageIdIdx: index('page_views_page_id_idx').on(table.pageId),
+    visitedAtIdx: index('page_views_visited_at_idx').on(table.visitedAt),
+  })
 );
 
 // ============================================================================
@@ -324,10 +327,10 @@ export const learningRoutes = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
-    index('learning_routes_slug_idx').on(table.slug),
-    index('learning_routes_sort_order_idx').on(table.sortOrder),
-  ]
+  (table) => ({
+    slugIdx: index('learning_routes_slug_idx').on(table.slug),
+    sortOrderIdx: index('learning_routes_sort_order_idx').on(table.sortOrder),
+  })
 );
 
 // ============================================================================
@@ -349,12 +352,12 @@ export const learningNodes = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
-    index('learning_nodes_route_id_idx').on(table.routeId),
-    index('learning_nodes_parent_id_idx').on(table.parentId),
-    index('learning_nodes_sort_order_idx').on(table.sortOrder),
-    check('learning_nodes_status_check', `"status" IN ('planned', 'learning', 'completed')`),
-  ]
+  (table) => ({
+    routeIdIdx: index('learning_nodes_route_id_idx').on(table.routeId),
+    parentIdIdx: index('learning_nodes_parent_id_idx').on(table.parentId),
+    sortOrderIdx: index('learning_nodes_sort_order_idx').on(table.sortOrder),
+    statusCheck: check('learning_nodes_status_check', sql`"status" IN ('planned', 'learning', 'completed')`),
+  })
 );
 
 // ============================================================================
@@ -372,11 +375,11 @@ export const skills = pgTable(
     sortOrder: integer('sort_order').notNull().default(0),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
-    index('skills_category_idx').on(table.category),
-    index('skills_sort_order_idx').on(table.sortOrder),
-    check('skills_proficiency_check', '"proficiency" BETWEEN 0 AND 100'),
-  ]
+  (table) => ({
+    categoryIdx: index('skills_category_idx').on(table.category),
+    sortOrderIdx: index('skills_sort_order_idx').on(table.sortOrder),
+    proficiencyCheck: check('skills_proficiency_check', sql`"proficiency" BETWEEN 0 AND 100`),
+  })
 );
 
 // ============================================================================
@@ -393,9 +396,9 @@ export const socialLinks = pgTable(
     isVisible: boolean('is_visible').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
-    index('social_links_sort_order_idx').on(table.sortOrder),
-  ]
+  (table) => ({
+    sortOrderIdx: index('social_links_sort_order_idx').on(table.sortOrder),
+  })
 );
 
 // ============================================================================
@@ -413,9 +416,9 @@ export const workExperience = pgTable(
     sortOrder: integer('sort_order').notNull().default(0),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
-    index('work_experience_sort_order_idx').on(table.sortOrder),
-  ]
+  (table) => ({
+    sortOrderIdx: index('work_experience_sort_order_idx').on(table.sortOrder),
+  })
 );
 
 // ============================================================================
@@ -430,6 +433,7 @@ export const siteSettings = pgTable(
     siteLogo: varchar('site_logo', { length: 500 }),
     siteFavicon: varchar('site_favicon', { length: 500 }),
     avatarUrl: varchar('avatar_url', { length: 500 }),
+    tagline: varchar('tagline', { length: 200 }),
     bio: text('bio'),
     darkModeDefault: boolean('dark_mode_default').notNull().default(false),
     icp备案号: varchar('icp备案号', { length: 100 }),

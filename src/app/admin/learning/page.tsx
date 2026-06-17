@@ -212,11 +212,11 @@ export default function AdminLearningPage() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen bg-[#F5F1EA] dark:bg-[#1E1E1E]">
+      <div className="flex min-h-screen bg-background-cream">
         <AdminSidebar />
         <main className="flex-1 p-8">
           <Container maxWidth="full">
-            <div className="text-center py-12 text-[#777777]">加载中...</div>
+            <div className="text-center py-12 text-text-muted">加载中...</div>
           </Container>
         </main>
       </div>
@@ -224,21 +224,21 @@ export default function AdminLearningPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-[#F5F1EA] dark:bg-[#1E1E1E]">
+    <div className="flex min-h-screen bg-background-cream">
       <AdminSidebar />
 
       <main className="flex-1 p-8">
         <Container maxWidth="full">
           {/* Page Header */}
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-[#1A1A1A] dark:text-[#E0E0E0] mb-2">学习路线管理</h1>
-            <p className="text-[#777777]">创建和管理学习路线及节点</p>
+            <h1 className="text-3xl font-bold text-text-primary dark:text-text-primary mb-2">学习路线管理</h1>
+            <p className="text-text-muted">创建和管理学习路线及节点</p>
           </div>
 
           {/* Add Route Form */}
           <Card className="mb-8">
             <CardHeader>
-              <h2 className="text-lg font-semibold text-[#1A1A1A] dark:text-[#E0E0E0]">创建新路线</h2>
+              <h2 className="text-lg font-semibold text-text-primary dark:text-text-primary">创建新路线</h2>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
@@ -247,21 +247,21 @@ export default function AdminLearningPage() {
                   placeholder="路线名称"
                   value={newRoute.title}
                   onChange={(e) => setNewRoute({ ...newRoute, title: e.target.value })}
-                  className="px-4 py-2 border border-[#D9D2C8] dark:border-[#444444] rounded-8 bg-white dark:bg-[#1E1E1E]"
+                  className="px-4 py-2 border border-border-strong dark:border-border-strong rounded-8 bg-white dark:bg-background-base"
                 />
                 <input
                   type="text"
                   placeholder="路线简介（可选）"
                   value={newRoute.description}
                   onChange={(e) => setNewRoute({ ...newRoute, description: e.target.value })}
-                  className="px-4 py-2 border border-[#D9D2C8] dark:border-[#444444] rounded-8 bg-white dark:bg-[#1E1E1E]"
+                  className="px-4 py-2 border border-border-strong dark:border-border-strong rounded-8 bg-white dark:bg-background-base"
                 />
                 <input
                   type="text"
                   placeholder="学习目标（可选）"
                   value={newRoute.learningGoal}
                   onChange={(e) => setNewRoute({ ...newRoute, learningGoal: e.target.value })}
-                  className="px-4 py-2 border border-[#D9D2C8] dark:border-[#444444] rounded-8 bg-white dark:bg-[#1E1E1E]"
+                  className="px-4 py-2 border border-border-strong dark:border-border-strong rounded-8 bg-white dark:bg-background-base"
                 />
               </div>
               <Button onClick={handleAddRoute}>
@@ -295,20 +295,20 @@ export default function AdminLearningPage() {
                           )}
                         </Button>
                         <div>
-                          <h3 className="font-semibold text-[#1A1A1A] dark:text-[#E0E0E0]">
+                          <h3 className="font-semibold text-text-primary dark:text-text-primary">
                             {route.title}
                           </h3>
                           {route.description && (
-                            <p className="text-sm text-[#777777]">{route.description}</p>
+                            <p className="text-sm text-text-muted">{route.description}</p>
                           )}
                         </div>
                       </div>
                       <div className="flex items-center gap-4">
                         <div className="text-right">
-                          <div className="text-sm font-medium text-[#1A1A1A] dark:text-[#E0E0E0]">
+                          <div className="text-sm font-medium text-text-primary dark:text-text-primary">
                             {progress}%
                           </div>
-                          <div className="text-xs text-[#777777]">
+                          <div className="text-xs text-text-muted">
                             {completedNodes}/{totalNodes} 节点
                           </div>
                         </div>
@@ -323,7 +323,7 @@ export default function AdminLearningPage() {
                       </div>
                     </div>
                     {/* Progress Bar */}
-                    <div className="w-full bg-[#EBE7E0] dark:bg-[#444444] rounded-full h-2 mt-2">
+                    <div className="w-full bg-border dark:bg-background-hover rounded-full h-2 mt-2">
                       <div
                         className="bg-[#D36F2B] rounded-full h-2 transition-all duration-300"
                         style={{ width: `${progress}%` }}
@@ -334,21 +334,21 @@ export default function AdminLearningPage() {
                   {expandedRoute === route.id && (
                     <CardContent>
                       {/* Add Node Form */}
-                      <div className="mb-6 p-4 bg-[#F0EBE3] dark:bg-[#2A2A2A] rounded-8">
+                      <div className="mb-6 p-4 bg-background-hover dark:bg-background-base rounded-8">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                           <input
                             type="text"
                             placeholder="节点标题"
                             value={newNode.title}
                             onChange={(e) => setNewNode({ ...newNode, title: e.target.value })}
-                            className="px-3 py-2 border border-[#D9D2C8] dark:border-[#444444] rounded-8 bg-white dark:bg-[#1E1E1E] text-sm"
+                            className="px-3 py-2 border border-border-strong dark:border-border-strong rounded-8 bg-white dark:bg-background-base text-sm"
                           />
                           <input
                             type="text"
                             placeholder="节点描述（可选）"
                             value={newNode.description}
                             onChange={(e) => setNewNode({ ...newNode, description: e.target.value })}
-                            className="px-3 py-2 border border-[#D9D2C8] dark:border-[#444444] rounded-8 bg-white dark:bg-[#1E1E1E] text-sm"
+                            className="px-3 py-2 border border-border-strong dark:border-border-strong rounded-8 bg-white dark:bg-background-base text-sm"
                           />
                         </div>
                         <Button onClick={() => handleAddNode(route.id)} size="sm">
@@ -363,18 +363,18 @@ export default function AdminLearningPage() {
                           route.nodes.map((node, index) => (
                             <div
                               key={node.id}
-                              className="flex items-center justify-between p-3 bg-white dark:bg-[#2A2A2A] rounded-8 border border-[#EBE7E0] dark:border-[#444444]"
+                              className="flex items-center justify-between p-3 bg-white dark:bg-background-base rounded-8 border border-border dark:border-border-strong"
                             >
                               <div className="flex items-center gap-3">
-                                <span className="text-sm font-medium text-[#777777] w-6">
+                                <span className="text-sm font-medium text-text-muted w-6">
                                   {index + 1}.
                                 </span>
                                 <div>
-                                  <div className="font-medium text-[#1A1A1A] dark:text-[#E0E0E0]">
+                                  <div className="font-medium text-text-primary dark:text-text-primary">
                                     {node.title}
                                   </div>
                                   {node.description && (
-                                    <div className="text-sm text-[#777777]">{node.description}</div>
+                                    <div className="text-sm text-text-muted">{node.description}</div>
                                   )}
                                   {node.post && (
                                     <div className="text-sm text-[#D36F2B]">
@@ -405,7 +405,7 @@ export default function AdminLearningPage() {
                             </div>
                           ))
                         ) : (
-                          <div className="text-center py-4 text-[#777777]">
+                          <div className="text-center py-4 text-text-muted">
                             暂无节点，请添加学习节点
                           </div>
                         )}
@@ -418,7 +418,7 @@ export default function AdminLearningPage() {
           </div>
 
           {routes.length === 0 && (
-            <div className="text-center py-12 text-[#777777]">
+            <div className="text-center py-12 text-text-muted">
               <p className="text-lg mb-4">暂无学习路线</p>
               <p>创建第一条学习路线吧！</p>
             </div>

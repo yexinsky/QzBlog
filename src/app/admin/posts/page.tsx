@@ -84,7 +84,7 @@ export default function AdminPostsPage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#F5F1EA] dark:bg-[#1E1E1E]">
+    <div className="flex min-h-screen bg-background-cream">
       <AdminSidebar />
 
       <main className="flex-1 p-8">
@@ -92,8 +92,8 @@ export default function AdminPostsPage() {
           {/* Page Header */}
           <div className="flex items-center justify-between mb-8">
             <div>
-              <h1 className="text-3xl font-bold text-[#1A1A1A] dark:text-[#E0E0E0] mb-2">文章管理</h1>
-              <p className="text-[#777777]">管理您的所有文章</p>
+              <h1 className="text-3xl font-bold text-text-primary dark:text-text-primary mb-2">文章管理</h1>
+              <p className="text-text-muted">管理您的所有文章</p>
             </div>
             <Link href="/admin/posts/new">
               <Button>
@@ -108,19 +108,19 @@ export default function AdminPostsPage() {
             <CardContent className="p-4">
               <div className="flex flex-col md:flex-row gap-4">
                 <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#777777]" />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-text-muted" />
                   <input
                     type="text"
                     placeholder="搜索文章标题..."
                     value={searchKeyword}
                     onChange={(e) => setSearchKeyword(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-[#D9D2C8] dark:border-[#444444] rounded-8 bg-white dark:bg-[#1E1E1E] text-[#1A1A1A] dark:text-[#E0E0E0] focus:outline-none focus:border-[#D36F2B]"
+                    className="w-full pl-10 pr-4 py-2 border border-border-strong dark:border-border-strong rounded-8 bg-white dark:bg-background-base text-text-primary dark:text-text-primary focus:outline-none focus:border-[#D36F2B]"
                   />
                 </div>
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  className="px-4 py-2 border border-[#D9D2C8] dark:border-[#444444] rounded-8 bg-white dark:bg-[#1E1E1E] text-[#1A1A1A] dark:text-[#E0E0E0] focus:outline-none focus:border-[#D36F2B]"
+                  className="px-4 py-2 border border-border-strong dark:border-border-strong rounded-8 bg-white dark:bg-background-base text-text-primary dark:text-text-primary focus:outline-none focus:border-[#D36F2B]"
                 >
                   <option value="all">全部状态</option>
                   <option value="published">已发布</option>
@@ -134,16 +134,16 @@ export default function AdminPostsPage() {
           {/* Posts List */}
           <Card>
             <CardHeader>
-              <h2 className="text-lg font-semibold text-[#1A1A1A] dark:text-[#E0E0E0]">
+              <h2 className="text-lg font-semibold text-text-primary dark:text-text-primary">
                 文章列表 ({filteredPosts.length})
               </h2>
             </CardHeader>
             <CardContent>
               {isLoading ? (
-                <div className="text-center py-8 text-[#777777]">加载中...</div>
+                <div className="text-center py-8 text-text-muted">加载中...</div>
               ) : filteredPosts.length === 0 ? (
                 <div className="text-center py-8">
-                  <p className="text-[#777777] mb-4">暂无文章</p>
+                  <p className="text-text-muted mb-4">暂无文章</p>
                   <Link href="/admin/posts/new">
                     <Button>创建第一篇文章</Button>
                   </Link>
@@ -152,36 +152,36 @@ export default function AdminPostsPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
-                      <tr className="border-b border-[#EBE7E0] dark:border-[#444444]">
-                        <th className="text-left py-3 px-4 text-sm font-medium text-[#777777]">标题</th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-[#777777]">状态</th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-[#777777]">阅读量</th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-[#777777]">点赞数</th>
-                        <th className="text-left py-3 px-4 text-sm font-medium text-[#777777]">发布时间</th>
-                        <th className="text-right py-3 px-4 text-sm font-medium text-[#777777]">操作</th>
+                      <tr className="border-b border-border dark:border-border-strong">
+                        <th className="text-left py-3 px-4 text-sm font-medium text-text-muted">标题</th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-text-muted">状态</th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-text-muted">阅读量</th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-text-muted">点赞数</th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-text-muted">发布时间</th>
+                        <th className="text-right py-3 px-4 text-sm font-medium text-text-muted">操作</th>
                       </tr>
                     </thead>
                     <tbody>
                       {filteredPosts.map((post) => (
-                        <tr key={post.id} className="border-b border-[#EBE7E0] dark:border-[#444444] last:border-0 hover:bg-[#F0EBE3] dark:hover:bg-[#2A2A2A]">
+                        <tr key={post.id} className="border-b border-border dark:border-border-strong last:border-0 hover:bg-background-hover dark:hover:bg-background-base">
                           <td className="py-3 px-4">
-                            <Link href={`/posts/${post.slug}`} target="_blank" className="text-sm font-medium text-[#1A1A1A] dark:text-[#E0E0E0] hover:text-[#D36F2B]">
+                            <Link href={`/posts/${post.slug}`} target="_blank" className="text-sm font-medium text-text-primary dark:text-text-primary hover:text-[#D36F2B]">
                               {post.title}
                             </Link>
                           </td>
                           <td className="py-3 px-4">
                             {getStatusBadge(post.status)}
                           </td>
-                          <td className="py-3 px-4 text-sm text-[#444444] dark:text-[#E0E0E0]">
+                          <td className="py-3 px-4 text-sm text-text-secondary dark:text-text-primary">
                             <div className="flex items-center gap-1">
                               <Eye className="w-3 h-3" />
                               {post.viewCount}
                             </div>
                           </td>
-                          <td className="py-3 px-4 text-sm text-[#444444] dark:text-[#E0E0E0]">
+                          <td className="py-3 px-4 text-sm text-text-secondary dark:text-text-primary">
                             {post.likeCount}
                           </td>
-                          <td className="py-3 px-4 text-sm text-[#777777]">
+                          <td className="py-3 px-4 text-sm text-text-muted">
                             <div className="flex items-center gap-1">
                               <Calendar className="w-3 h-3" />
                               {post.publishedAt ? new Date(post.publishedAt).toLocaleDateString('zh-CN') : '-'}

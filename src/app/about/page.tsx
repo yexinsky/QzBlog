@@ -1,4 +1,5 @@
 import { db, schema } from '@/lib/db';
+import { eq, sql } from 'drizzle-orm';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { Container, Section, PageTitle } from '@/components/layout/Container';
@@ -67,7 +68,7 @@ export default async function AboutPage() {
     };
 
     return (
-      <div className="min-h-screen bg-[#F5F1EA] dark:bg-[#1E1E1E]">
+      <div className="min-h-screen bg-background-cream">
         <Header />
         <main className="py-8">
           <Container maxWidth="4xl">
@@ -86,36 +87,36 @@ export default async function AboutPage() {
                         className="w-32 h-32 rounded-full mx-auto mb-4 object-cover"
                       />
                     ) : (
-                      <div className="w-32 h-32 rounded-full mx-auto mb-4 bg-[#D36F2B] flex items-center justify-center text-white text-4xl font-bold">
+                      <div className="w-32 h-32 rounded-full mx-auto mb-4 bg-brand-orange flex items-center justify-center text-white text-4xl font-bold">
                         Q
                       </div>
                     )}
-                    <h2 className="text-xl font-bold text-[#1A1A1A] dark:text-[#E0E0E0] mb-2">
+                    <h2 className="text-xl font-bold text-text-primary dark:text-text-primary mb-2">
                       {settings?.siteName || 'Qzhou'}
                     </h2>
-                    <p className="text-[#777777] mb-4">
-                      {settings?.bio || '全栈开发工程师，热爱技术，喜欢分享'}
+                    <p className="text-text-muted mb-4">
+                      {settings?.tagline || '全栈开发工程师'}
                     </p>
 
                     {/* 统计数据 */}
-                    <div className="grid grid-cols-3 gap-4 pt-4 border-t border-[#EBE7E0] dark:border-[#444444]">
+                    <div className="grid grid-cols-3 gap-4 pt-4 border-t border-border dark:border-border-strong">
                       <div>
-                        <div className="text-2xl font-bold text-[#1A1A1A] dark:text-[#E0E0E0]">
+                        <div className="text-2xl font-bold text-text-primary dark:text-text-primary">
                           {postsCount[0]?.count || 0}
                         </div>
-                        <div className="text-sm text-[#777777]">文章</div>
+                        <div className="text-sm text-text-muted">文章</div>
                       </div>
                       <div>
-                        <div className="text-2xl font-bold text-[#1A1A1A] dark:text-[#E0E0E0]">
+                        <div className="text-2xl font-bold text-text-primary dark:text-text-primary">
                           {momentsCount[0]?.count || 0}
                         </div>
-                        <div className="text-sm text-[#777777]">动态</div>
+                        <div className="text-sm text-text-muted">动态</div>
                       </div>
                       <div>
-                        <div className="text-2xl font-bold text-[#1A1A1A] dark:text-[#E0E0E0]">
+                        <div className="text-2xl font-bold text-text-primary dark:text-text-primary">
                           {projectsCount[0]?.count || 0}
                         </div>
-                        <div className="text-sm text-[#777777]">项目</div>
+                        <div className="text-sm text-text-muted">项目</div>
                       </div>
                     </div>
                   </CardContent>
@@ -125,7 +126,7 @@ export default async function AboutPage() {
                 {socialLinks.length > 0 && (
                   <Card>
                     <CardContent className="p-6">
-                      <h3 className="font-semibold text-[#1A1A1A] dark:text-[#E0E0E0] mb-4">社交链接</h3>
+                      <h3 className="font-semibold text-text-primary dark:text-text-primary mb-4">社交链接</h3>
                       <div className="space-y-3">
                         {socialLinks.map((link) => (
                           <a
@@ -133,7 +134,7 @@ export default async function AboutPage() {
                             href={link.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center gap-3 text-[#444444] dark:text-[#E0E0E0] hover:text-[#D36F2B] transition-colors"
+                            className="flex items-center gap-3 text-text-secondary dark:text-text-secondary hover:text-brand-orange transition-colors"
                           >
                             {getSocialIcon(link.platform)}
                             <span>{link.platform}</span>
@@ -150,19 +151,16 @@ export default async function AboutPage() {
                 {/* 个人简介 */}
                 <Card>
                   <CardContent className="p-6">
-                    <h3 className="text-lg font-semibold text-[#1A1A1A] dark:text-[#E0E0E0] mb-4 flex items-center gap-2">
+                    <h3 className="text-lg font-semibold text-text-primary dark:text-text-primary mb-4 flex items-center gap-2">
                       <BookOpen className="w-5 h-5" />
                       个人简介
                     </h3>
                     <div className="prose prose-lg max-w-none dark:prose-invert">
-                      <p>
-                        你好！我是一名全栈开发工程师，专注于 Web 开发、前端架构和开源项目。
-                        我热爱技术，喜欢分享，在这个博客上记录我的技术心得和成长历程。
-                      </p>
-                      <p>
-                        我的主要技术栈包括 React、Next.js、TypeScript、Node.js、Go 等。
-                        我相信「写作即思考，分享即成长」，通过博客来沉淀知识、建立影响力。
-                      </p>
+                      {settings?.bio ? (
+                        <p className="whitespace-pre-wrap">{settings.bio}</p>
+                      ) : (
+                        <p className="text-text-muted italic">暂无个人简介</p>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -171,14 +169,14 @@ export default async function AboutPage() {
                 {Object.keys(skillsByCategory).length > 0 && (
                   <Card>
                     <CardContent className="p-6">
-                      <h3 className="text-lg font-semibold text-[#1A1A1A] dark:text-[#E0E0E0] mb-4 flex items-center gap-2">
+                      <h3 className="text-lg font-semibold text-text-primary dark:text-text-primary mb-4 flex items-center gap-2">
                         <Code className="w-5 h-5" />
                         技能栈
                       </h3>
                       <div className="space-y-6">
                         {Object.entries(skillsByCategory).map(([category, categorySkills]) => (
                           <div key={category}>
-                            <h4 className="text-sm font-medium text-[#777777] mb-3">{category}</h4>
+                            <h4 className="text-sm font-medium text-text-muted mb-3">{category}</h4>
                             <div className="flex flex-wrap gap-2">
                               {categorySkills.map((skill) => (
                                 <span
@@ -206,7 +204,7 @@ export default async function AboutPage() {
                 {workExperience.length > 0 && (
                   <Card>
                     <CardContent className="p-6">
-                      <h3 className="text-lg font-semibold text-[#1A1A1A] dark:text-[#E0E0E0] mb-4 flex items-center gap-2">
+                      <h3 className="text-lg font-semibold text-text-primary dark:text-text-primary mb-4 flex items-center gap-2">
                         <Briefcase className="w-5 h-5" />
                         工作经历
                       </h3>
@@ -216,18 +214,18 @@ export default async function AboutPage() {
                             key={exp.id}
                             className={`pb-4 ${
                               index < workExperience.length - 1
-                                ? 'border-b border-[#EBE7E0] dark:border-[#444444]'
+                                ? 'border-b border-border dark:border-border-strong'
                                 : ''
                             }`}
                           >
                             <div className="flex items-start justify-between mb-2">
                               <div>
-                                <h4 className="font-medium text-[#1A1A1A] dark:text-[#E0E0E0]">
+                                <h4 className="font-medium text-text-primary dark:text-text-primary">
                                   {exp.position}
                                 </h4>
-                                <p className="text-[#777777]">{exp.company}</p>
+                                <p className="text-text-muted">{exp.company}</p>
                               </div>
-                              <span className="text-sm text-[#777777]">
+                              <span className="text-sm text-text-muted">
                                 {new Date(exp.startDate).toLocaleDateString('zh-CN', { year: 'numeric', month: 'numeric' })}
                                 {' - '}
                                 {exp.endDate
@@ -236,7 +234,7 @@ export default async function AboutPage() {
                               </span>
                             </div>
                             {exp.description && (
-                              <p className="text-sm text-[#444444] dark:text-[#E0E0E0]">
+                              <p className="text-sm text-text-secondary dark:text-text-secondary">
                                 {exp.description}
                               </p>
                             )}
@@ -256,12 +254,12 @@ export default async function AboutPage() {
   } catch (error) {
     console.error('Error loading about page:', error);
     return (
-      <div className="min-h-screen bg-[#F5F1EA] dark:bg-[#1E1E1E]">
+      <div className="min-h-screen bg-background-cream">
         <Header />
         <main className="py-8">
           <Container maxWidth="4xl">
             <PageTitle title="关于我" />
-            <div className="text-center py-12 text-[#777777]">
+            <div className="text-center py-12 text-text-muted">
               <p>加载中...</p>
             </div>
           </Container>

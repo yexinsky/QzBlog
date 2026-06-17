@@ -51,7 +51,7 @@ export const LikeButton: React.FC<LikeButtonProps> = ({ postId, initialCount, cl
         'flex items-center gap-2 px-4 py-2 rounded-8 border transition-all duration-200',
         isLiked
           ? 'bg-red-50 border-red-200 text-red-500'
-          : 'bg-white dark:bg-[#2A2A2A] border-[#EBE7E0] dark:border-[#444444] text-[#777777] hover:border-red-300 hover:text-red-500',
+          : 'bg-background-base dark:bg-background-base border-border dark:border-border-strong text-text-muted hover:border-red-300 hover:text-red-500',
         isAnimating && 'scale-110',
         className
       )}

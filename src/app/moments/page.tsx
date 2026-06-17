@@ -86,45 +86,45 @@ export default function MomentsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F5F1EA] dark:bg-[#1E1E1E]">
+    <div className="min-h-screen bg-background-cream">
       <Header />
       <main className="py-8">
-        <Container maxWidth="2xl">
+        <Container maxWidth="4xl">
           <PageTitle
             title="动态"
             description="记录想法、分享进展"
           />
 
           {isLoading ? (
-            <div className="text-center py-12 text-[#777777]">加载中...</div>
+            <div className="text-center py-12 text-text-muted">加载中...</div>
           ) : moments.length === 0 ? (
-            <div className="text-center py-12 text-[#777777]">
+            <div className="text-center py-12 text-text-muted">
               <p className="text-lg mb-4">暂无动态</p>
               <p>博主还没有发布任何动态</p>
             </div>
           ) : (
             <div className="relative">
               {/* 时间轴线 */}
-              <div className="absolute left-8 top-0 bottom-0 w-0.5 bg-[#EBE7E0] dark:bg-[#444444]" />
+              <div className="absolute left-8 top-0 bottom-0 w-0.5 bg-border dark:bg-border-strong" />
 
               {/* 动态列表 */}
               <div className="space-y-6">
                 {moments.map((moment, index) => (
                   <div key={moment.id} className="relative pl-20">
                     {/* 时间轴节点 */}
-                    <div className="absolute left-6 top-6 w-4 h-4 rounded-full bg-[#D36F2B] border-4 border-[#F5F1EA] dark:border-[#1E1E1E]" />
+                    <div className="absolute left-6 top-6 w-4 h-4 rounded-full bg-brand-orange border-4 border-background-cream dark:border-background-base" />
 
                     {/* 动态卡片 */}
                     <Card className="transition-all duration-200 hover:shadow-md">
                       <CardContent className="p-6">
                         {/* 时间 */}
-                        <div className="flex items-center gap-2 text-sm text-[#777777] mb-3">
+                        <div className="flex items-center gap-2 text-sm text-text-muted mb-3">
                           <Clock className="w-4 h-4" />
                           <span>{formatRelativeTime(moment.publishedAt)}</span>
                         </div>
 
                         {/* 内容 */}
-                        <p className="text-[#444444] dark:text-[#E0E0E0] mb-4 whitespace-pre-wrap">
+                        <p className="text-text-secondary dark:text-text-secondary mb-4 whitespace-pre-wrap">
                           {moment.content}
                         </p>
 
@@ -140,7 +140,7 @@ export default function MomentsPage() {
                         )}
 
                         {/* 操作栏 */}
-                        <div className="flex items-center gap-4 pt-4 border-t border-[#EBE7E0] dark:border-[#444444]">
+                        <div className="flex items-center gap-4 pt-4 border-t border-border dark:border-border-strong">
                           <button
                             onClick={() => handleLike(moment.id)}
                             disabled={moment.isLiked}
@@ -148,7 +148,7 @@ export default function MomentsPage() {
                               'flex items-center gap-2 px-3 py-1.5 rounded-8 text-sm transition-colors',
                               moment.isLiked
                                 ? 'text-red-500 bg-red-50'
-                                : 'text-[#777777] hover:text-red-500 hover:bg-red-50'
+                                : 'text-text-muted hover:text-red-500 hover:bg-red-50'
                             )}
                           >
                             <Heart
@@ -171,7 +171,7 @@ export default function MomentsPage() {
                 <div className="text-center mt-8">
                   <button
                     onClick={() => setPage((prev) => prev + 1)}
-                    className="px-6 py-2 bg-white dark:bg-[#2A2A2A] border border-[#EBE7E0] dark:border-[#444444] rounded-8 text-[#444444] dark:text-[#E0E0E0] hover:bg-[#F0EBE3] dark:hover:bg-[#444444] transition-colors"
+                    className="px-6 py-2 bg-background-base border border-border dark:border-border-strong rounded-8 text-text-secondary dark:text-text-secondary hover:bg-background-hover dark:hover:bg-background-hover transition-colors"
                   >
                     加载更多
                   </button>

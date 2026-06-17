@@ -118,26 +118,26 @@ export default function AdminMomentsPage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#F5F1EA] dark:bg-[#1E1E1E]">
+    <div className="flex min-h-screen bg-background-cream">
       <AdminSidebar />
 
       <main className="flex-1 p-8">
         <Container maxWidth="full">
           {/* Page Header */}
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-[#1A1A1A] dark:text-[#E0E0E0] mb-2">动态管理</h1>
-            <p className="text-[#777777]">发布和管理动态</p>
+            <h1 className="text-3xl font-bold text-text-primary dark:text-text-primary mb-2">动态管理</h1>
+            <p className="text-text-muted">发布和管理动态</p>
           </div>
 
           {/* Publish Form */}
           <Card className="mb-8">
             <CardHeader>
-              <h2 className="text-lg font-semibold text-[#1A1A1A] dark:text-[#E0E0E0]">发布新动态</h2>
+              <h2 className="text-lg font-semibold text-text-primary dark:text-text-primary">发布新动态</h2>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-[#444444] dark:text-[#E0E0E0] mb-2">
+                  <label className="block text-sm font-medium text-text-secondary dark:text-text-primary mb-2">
                     动态内容（最多 500 字）
                   </label>
                   <textarea
@@ -146,15 +146,15 @@ export default function AdminMomentsPage() {
                     placeholder="分享你的想法..."
                     rows={4}
                     maxLength={500}
-                    className="w-full px-4 py-3 border border-[#D9D2C8] dark:border-[#444444] rounded-8 bg-white dark:bg-[#1E1E1E] text-[#1A1A1A] dark:text-[#E0E0E0] focus:outline-none focus:border-[#D36F2B] resize-none"
+                    className="w-full px-4 py-3 border border-border-strong dark:border-border-strong rounded-8 bg-white dark:bg-background-base text-text-primary dark:text-text-primary focus:outline-none focus:border-[#D36F2B] resize-none"
                   />
-                  <div className="text-right text-sm text-[#777777] mt-1">
+                  <div className="text-right text-sm text-text-muted mt-1">
                     {newContent.length}/500
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-[#444444] dark:text-[#E0E0E0] mb-2">
+                  <label className="block text-sm font-medium text-text-secondary dark:text-text-primary mb-2">
                     图片链接（可选）
                   </label>
                   <input
@@ -162,7 +162,7 @@ export default function AdminMomentsPage() {
                     value={newImageUrl}
                     onChange={(e) => setNewImageUrl(e.target.value)}
                     placeholder="https://example.com/image.jpg"
-                    className="w-full px-4 py-3 border border-[#D9D2C8] dark:border-[#444444] rounded-8 bg-white dark:bg-[#1E1E1E] text-[#1A1A1A] dark:text-[#E0E0E0] focus:outline-none focus:border-[#D36F2B]"
+                    className="w-full px-4 py-3 border border-border-strong dark:border-border-strong rounded-8 bg-white dark:bg-background-base text-text-primary dark:text-text-primary focus:outline-none focus:border-[#D36F2B]"
                   />
                 </div>
 
@@ -179,15 +179,15 @@ export default function AdminMomentsPage() {
           {/* Moments List */}
           <Card>
             <CardHeader>
-              <h2 className="text-lg font-semibold text-[#1A1A1A] dark:text-[#E0E0E0]">
+              <h2 className="text-lg font-semibold text-text-primary dark:text-text-primary">
                 动态列表 ({moments.length})
               </h2>
             </CardHeader>
             <CardContent>
               {isLoading ? (
-                <div className="text-center py-8 text-[#777777]">加载中...</div>
+                <div className="text-center py-8 text-text-muted">加载中...</div>
               ) : moments.length === 0 ? (
-                <div className="text-center py-8 text-[#777777]">
+                <div className="text-center py-8 text-text-muted">
                   <p className="text-lg mb-4">暂无动态</p>
                   <p>发布第一条动态吧！</p>
                 </div>
@@ -196,11 +196,11 @@ export default function AdminMomentsPage() {
                   {moments.map((moment) => (
                     <div
                       key={moment.id}
-                      className="p-4 border border-[#EBE7E0] dark:border-[#444444] rounded-8 hover:bg-[#F0EBE3] dark:hover:bg-[#2A2A2A] transition-colors"
+                      className="p-4 border border-border dark:border-border-strong rounded-8 hover:bg-background-hover dark:hover:bg-background-base transition-colors"
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex-1 min-w-0">
-                          <p className="text-[#444444] dark:text-[#E0E0E0] mb-2 whitespace-pre-wrap">
+                          <p className="text-text-secondary dark:text-text-primary mb-2 whitespace-pre-wrap">
                             {moment.content}
                           </p>
                           {moment.imageUrl && (
@@ -212,7 +212,7 @@ export default function AdminMomentsPage() {
                               />
                             </div>
                           )}
-                          <div className="flex items-center gap-4 text-sm text-[#777777]">
+                          <div className="flex items-center gap-4 text-sm text-text-muted">
                             <div className="flex items-center gap-1">
                               <Clock className="w-3 h-3" />
                               <span>{formatRelativeTime(moment.publishedAt)}</span>

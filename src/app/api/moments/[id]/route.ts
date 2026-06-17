@@ -34,7 +34,6 @@ export async function PUT(
       .update(schema.moments)
       .set({
         ...validatedData,
-        updatedAt: new Date(),
       })
       .where(eq(schema.moments.id, id))
       .returning();

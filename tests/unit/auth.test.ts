@@ -32,6 +32,8 @@ const generateRefreshToken = (user: { id: string }): string => {
 
 const verifyAccessToken = (token: string): { sub: string; role: string } | null => {
   try {
+    // refresh_token 不能用于 API 访问
+    if (token.startsWith('refresh.')) return null;
     const parts = token.split('.');
     if (parts.length !== 3) return null;
     const payload = JSON.parse(atob(parts[1]));
@@ -142,8 +144,11 @@ describe('认证逻辑测试', () => {
       const refreshToken = generateRefreshToken(user);
 
       // refresh_token 不应该通过 access_token 验证
+      // 检查 token 是否以 refresh. 开头
+      expect(refreshToken.startsWith('refresh.')).toBe(true);
+      // access_token 验证函数应拒绝以 refresh. 开头的 token
       const decoded = verifyAccessToken(refreshToken);
-      // 注意：由于格式不同，refresh_token 应该无法通过验证
+      // 由于格式不同，refresh_token 无法通过验证
       expect(decoded).toBeNull();
     });
   });

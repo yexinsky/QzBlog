@@ -1,1 +1,1 @@
-export { CommentSection, PostActions } from './CommentSection'
+export { CommentSection } from './CommentSection'

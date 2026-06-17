@@ -120,17 +120,17 @@ export default async function PostPage({ params }: PostPageProps) {
       .where(eq(schema.posts.id, post.id));
 
     return (
-      <div className="min-h-screen bg-[#F5F1EA] dark:bg-[#1E1E1E]">
+      <div className="min-h-screen bg-background-cream">
         <Header />
         <main className="py-8">
           <Container maxWidth="4xl">
             <article>
               {/* 文章头部 */}
               <header className="mb-8">
-                <h1 className="text-3xl md:text-4xl font-bold text-[#1A1A1A] dark:text-[#E0E0E0] mb-4">
+                <h1 className="text-3xl md:text-4xl font-bold text-text-primary dark:text-text-primary mb-4">
                   {post.title}
                 </h1>
-                <div className="flex flex-wrap items-center gap-4 text-sm text-[#777777]">
+                <div className="flex flex-wrap items-center gap-4 text-sm text-text-muted">
                   <div className="flex items-center gap-1">
                     <Calendar className="w-4 h-4" />
                     <span>{post.publishedAt ? new Date(post.publishedAt).toLocaleDateString('zh-CN') : ''}</span>
@@ -156,7 +156,7 @@ export default async function PostPage({ params }: PostPageProps) {
                       <Link
                         key={pt.tag.id}
                         href={`/tags/${pt.tag.slug}`}
-                        className="flex items-center gap-1 px-3 py-1 text-sm bg-[#EBE7E0] dark:bg-[#444444] text-[#444444] dark:text-[#E0E0E0] rounded-full hover:bg-[#D36F2B] hover:text-white transition-colors"
+                        className="flex items-center gap-1 px-3 py-1 text-sm bg-background-hover dark:bg-background-hover text-text-secondary dark:text-text-primary rounded-full hover:bg-[#D36F2B] hover:text-white transition-colors"
                       >
                         <Tag className="w-3 h-3" />
                         {pt.tag.name}
@@ -167,8 +167,8 @@ export default async function PostPage({ params }: PostPageProps) {
 
                 {/* 系列导航 */}
                 {post.seriesPost?.[0]?.series && (
-                  <div className="mt-6 p-4 bg-white dark:bg-[#2A2A2A] rounded-12 border border-[#EBE7E0] dark:border-[#444444]">
-                    <div className="flex items-center gap-2 text-sm text-[#777777] mb-2">
+                  <div className="mt-6 p-4 bg-background-base dark:bg-background-base rounded-12 border-border dark:border-border-strong">
+                    <div className="flex items-center gap-2 text-sm text-text-muted mb-2">
                       <span>📂</span>
                       <span>系列: {post.seriesPost[0].series.title}</span>
                     </div>
@@ -205,7 +205,7 @@ export default async function PostPage({ params }: PostPageProps) {
                 {toc.length > 0 && (
                   <aside className="hidden lg:block w-64 flex-shrink-0">
                     <div className="sticky top-8">
-                      <TableOfContents toc={toc} />
+                      <TableOfContents items={toc} />
                     </div>
                   </aside>
                 )}
@@ -229,7 +229,7 @@ export default async function PostPage({ params }: PostPageProps) {
 
                   {/* 作者信息 */}
                   {post.author && (
-                    <div className="mt-8 p-6 bg-white dark:bg-[#2A2A2A] rounded-12 border border-[#EBE7E0] dark:border-[#444444]">
+                    <div className="mt-8 p-6 bg-background-base dark:bg-background-base rounded-12 border-border dark:border-border-strong">
                       <div className="flex items-center gap-4">
                         {post.author.avatarUrl && (
                           <img
@@ -239,11 +239,11 @@ export default async function PostPage({ params }: PostPageProps) {
                           />
                         )}
                         <div>
-                          <h3 className="font-semibold text-[#1A1A1A] dark:text-[#E0E0E0]">
+                          <h3 className="font-semibold text-text-primary dark:text-text-primary">
                             {post.author.username}
                           </h3>
                           {post.author.bio && (
-                            <p className="text-sm text-[#777777] mt-1">{post.author.bio}</p>
+                            <p className="text-sm text-text-muted mt-1">{post.author.bio}</p>
                           )}
                         </div>
                       </div>

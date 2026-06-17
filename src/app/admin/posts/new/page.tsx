@@ -173,7 +173,7 @@ export default function NewPostPage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#F5F1EA] dark:bg-[#1E1E1E]">
+    <div className="flex min-h-screen bg-background-cream">
       <AdminSidebar />
 
       <main className="flex-1 p-8">
@@ -186,9 +186,9 @@ export default function NewPostPage() {
                 返回
               </Button>
               <div>
-                <h1 className="text-3xl font-bold text-[#1A1A1A] dark:text-[#E0E0E0]">新建文章</h1>
+                <h1 className="text-3xl font-bold text-text-primary dark:text-text-primary">新建文章</h1>
                 {lastSaved && (
-                  <p className="text-sm text-[#777777] mt-1">
+                  <p className="text-sm text-text-muted mt-1">
                     上次保存: {lastSaved.toLocaleTimeString('zh-CN')}
                   </p>
                 )}
@@ -214,13 +214,13 @@ export default function NewPostPage() {
             {/* Editor Panel */}
             <Card>
               <CardHeader>
-                <h2 className="text-lg font-semibold text-[#1A1A1A] dark:text-[#E0E0E0]">编辑</h2>
+                <h2 className="text-lg font-semibold text-text-primary dark:text-text-primary">编辑</h2>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   {/* Title */}
                   <div>
-                    <label className="block text-sm font-medium text-[#444444] dark:text-[#E0E0E0] mb-2">
+                    <label className="block text-sm font-medium text-text-secondary dark:text-text-primary mb-2">
                       文章标题
                     </label>
                     <input
@@ -228,13 +228,13 @@ export default function NewPostPage() {
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
                       placeholder="请输入文章标题"
-                      className="w-full px-4 py-3 text-lg border border-[#D9D2C8] dark:border-[#444444] rounded-8 bg-white dark:bg-[#1E1E1E] text-[#1A1A1A] dark:text-[#E0E0E0] focus:outline-none focus:border-[#D36F2B]"
+                      className="w-full px-4 py-3 text-lg border border-border-strong dark:border-border-strong rounded-8 bg-white dark:bg-background-base text-text-primary dark:text-text-primary focus:outline-none focus:border-[#D36F2B]"
                     />
                   </div>
 
                   {/* Summary */}
                   <div>
-                    <label className="block text-sm font-medium text-[#444444] dark:text-[#E0E0E0] mb-2">
+                    <label className="block text-sm font-medium text-text-secondary dark:text-text-primary mb-2">
                       文章摘要（可选）
                     </label>
                     <textarea
@@ -242,13 +242,13 @@ export default function NewPostPage() {
                       onChange={(e) => setSummary(e.target.value)}
                       placeholder="请输入文章摘要，留空将自动截取"
                       rows={3}
-                      className="w-full px-4 py-3 border border-[#D9D2C8] dark:border-[#444444] rounded-8 bg-white dark:bg-[#1E1E1E] text-[#1A1A1A] dark:text-[#E0E0E0] focus:outline-none focus:border-[#D36F2B] resize-none"
+                      className="w-full px-4 py-3 border border-border-strong dark:border-border-strong rounded-8 bg-white dark:bg-background-base text-text-primary dark:text-text-primary focus:outline-none focus:border-[#D36F2B] resize-none"
                     />
                   </div>
 
                   {/* Content */}
                   <div>
-                    <label className="block text-sm font-medium text-[#444444] dark:text-[#E0E0E0] mb-2">
+                    <label className="block text-sm font-medium text-text-secondary dark:text-text-primary mb-2">
                       文章内容
                     </label>
                     <MarkdownEditorWithToolbar
@@ -265,7 +265,7 @@ export default function NewPostPage() {
             {/* Preview Panel */}
             <Card>
               <CardHeader>
-                <h2 className="text-lg font-semibold text-[#1A1A1A] dark:text-[#E0E0E0]">预览</h2>
+                <h2 className="text-lg font-semibold text-text-primary dark:text-text-primary">预览</h2>
               </CardHeader>
               <CardContent>
                 {showPreview ? (
@@ -274,7 +274,7 @@ export default function NewPostPage() {
                     dangerouslySetInnerHTML={{ __html: previewHtml }}
                   />
                 ) : (
-                  <div className="text-center py-12 text-[#777777]">
+                  <div className="text-center py-12 text-text-muted">
                     <Eye className="w-12 h-12 mx-auto mb-4 opacity-50" />
                     <p>点击「预览」按钮查看渲染效果</p>
                   </div>
@@ -284,8 +284,8 @@ export default function NewPostPage() {
           </div>
 
           {/* Keyboard Shortcuts Help */}
-          <div className="mt-6 text-sm text-[#777777]">
-            <p>快捷键: <kbd className="px-2 py-1 bg-[#EBE7E0] dark:bg-[#444444] rounded text-xs">Ctrl+S</kbd> 保存草稿 | <kbd className="px-2 py-1 bg-[#EBE7E0] dark:bg-[#444444] rounded text-xs">Ctrl+Shift+P</kbd> 发布</p>
+          <div className="mt-6 text-sm text-text-muted">
+            <p>快捷键: <kbd className="px-2 py-1 bg-border dark:bg-background-hover rounded text-xs">Ctrl+S</kbd> 保存草稿 | <kbd className="px-2 py-1 bg-border dark:bg-background-hover rounded text-xs">Ctrl+Shift+P</kbd> 发布</p>
           </div>
         </Container>
       </main>

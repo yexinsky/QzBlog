@@ -2,7 +2,7 @@ import React from 'react'
 import { cn } from '@/lib/utils'
 
 interface ContainerProps extends React.HTMLAttributes<HTMLDivElement> {
-  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'full'
+  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '4xl' | 'full'
   children: React.ReactNode
 }
 
@@ -18,6 +18,7 @@ export const Container: React.FC<ContainerProps> = ({
     lg: 'max-w-screen-lg',
     xl: 'max-w-screen-xl',
     '2xl': 'max-w-screen-2xl',
+    '4xl': 'max-w-[56rem]',
     full: 'max-w-full'
   }
 

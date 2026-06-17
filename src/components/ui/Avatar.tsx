@@ -1,5 +1,8 @@
+'use client'
+
 import React from 'react'
 import { cn } from '@/lib/utils'
+import { SignedImg } from './SignedImg'
 
 interface AvatarProps extends React.HTMLAttributes<HTMLDivElement> {
   src?: string
@@ -34,13 +37,11 @@ export const Avatar = React.forwardRef<HTMLDivElement, AvatarProps>(
         {...props}
       >
         {src ? (
-          <img
+          <SignedImg
             src={src}
             alt={alt}
             className="w-full h-full object-cover"
-            onError={(e) => {
-              e.currentTarget.style.display = 'none'
-            }}
+            fallback={null}
           />
         ) : fallback ? (
           getInitials(fallback)

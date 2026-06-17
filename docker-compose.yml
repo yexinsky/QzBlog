@@ -16,16 +16,15 @@ services:
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
       - GITHUB_ID=${GITHUB_ID}
       - GITHUB_SECRET=${GITHUB_SECRET}
-      - MINIO_ENDPOINT=minio
-      - MINIO_PORT=9000
-      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
-      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
+      - MINIO_ENDPOINT=${MINIO_ENDPOINT}
+      - MINIO_PORT=${MINIO_PORT:-9000}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
       - MINIO_BUCKET=${MINIO_BUCKET:-qzblog}
+      - MINIO_PUBLIC_URL=${MINIO_PUBLIC_URL}
     depends_on:
       db:
         condition: service_healthy
-      minio:
-        condition: service_started
     networks:
       - qzblog-network
 
@@ -35,7 +34,7 @@ services:
     container_name: qzblog-db
     restart: unless-stopped
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
@@ -47,23 +46,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - qzblog-network
-
-  # MinIO Object Storage
-  minio:
-    image: minio/minio:latest
-    container_name: qzblog-minio
-    restart: unless-stopped
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    environment:
-      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY:-minioadmin}
-      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY:-minioadmin}
-    volumes:
-      - minio-data:/data
-    command: server /data --console-address ":9001"
     networks:
       - qzblog-network
 
@@ -86,7 +68,6 @@ services:
 
 volumes:
   postgres-data:
-  minio-data:
 
 networks:
   qzblog-network:

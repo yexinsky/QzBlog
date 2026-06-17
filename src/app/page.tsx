@@ -7,13 +7,26 @@ import { MainLayout } from '@/components/layout/Layout';
 import { Sidebar, ProfileCard, TagCloudSection, RecentPostsSection } from '@/components/layout/Sidebar';
 import { ArticleList } from '@/components/article/ArticleList';
 import { db, schema } from '@/lib/db';
-import { eq, desc, sql } from 'drizzle-orm';
+import { eq, desc, sql, count } from 'drizzle-orm';
 
 export const revalidate = 60; // 每 60 秒重新验证
 
-export default async function HomePage() {
+const PAGE_SIZE = 10;
+
+export default async function HomePage({ searchParams }: { searchParams?: { page?: string } }) {
   try {
-    // 获取已发布的文章
+    const currentPage = Math.max(1, parseInt(searchParams?.page || '1'));
+    const offset = (currentPage - 1) * PAGE_SIZE;
+
+    // 获取已发布的文章总数
+    const totalResult = await db
+      .select({ count: count() })
+      .from(schema.posts)
+      .where(eq(schema.posts.status, 'published'));
+    const totalPosts = totalResult[0]?.count || 0;
+    const totalPages = Math.ceil(totalPosts / PAGE_SIZE);
+
+    // 获取已发布的文章（分页）
     const posts = await db.query.posts.findMany({
       where: eq(schema.posts.status, 'published'),
       with: {
@@ -31,7 +44,8 @@ export default async function HomePage() {
         },
       },
       orderBy: [desc(schema.posts.isPinned), desc(schema.posts.publishedAt)],
-      limit: 10,
+      limit: PAGE_SIZE,
+      offset,
     });
 
     // 获取标签列表
@@ -44,6 +58,9 @@ export default async function HomePage() {
         },
       },
     });
+
+    // 获取站点设置用于侧边栏个人信息
+    const settings = await db.query.siteSettings.findFirst();
 
     // 格式化文章数据
     const formattedPosts = posts.map((post) => ({
@@ -89,14 +106,10 @@ export default async function HomePage() {
                   <Sidebar
                     showProfile
                     profileCard={{
-                      name: 'Qzhou',
-                      bio: '全栈开发工程师，热爱技术，喜欢分享。专注于 Web 开发、前端架构和开源项目。',
-                      avatar: '',
-                      tags: [
-                        { name: '全栈', href: '/tags/fullstack' },
-                        { name: '开源', href: '/tags/opensource' },
-                        { name: '分享', href: '/tags/sharing' },
-                      ],
+                      name: settings?.siteName || 'Qzhou',
+                      bio: settings?.bio || '这个人很懒，什么都没写',
+                      avatar: settings?.avatarUrl || '',
+                      tags: formattedTags.slice(0, 5).map(t => ({ name: t.name, href: `/tags/${t.slug}` })),
                     }}
                   >
                     <TagCloudSection title="标签云" tags={formattedTags} />
@@ -112,11 +125,47 @@ export default async function HomePage() {
 
                   {/* Featured Section */}
                   <div>
-                    <h2 className="text-2xl font-bold text-[#1A1A1A] dark:text-[#E0E0E0] mb-6">最新文章</h2>
+                    <h2 className="text-2xl font-bold text-text-primary dark:text-text-primary mb-6">最新文章</h2>
                     {formattedPosts.length > 0 ? (
-                      <ArticleList articles={formattedPosts} variant="grid" cols={2} />
+                      <>
+                        <ArticleList articles={formattedPosts} variant="grid" cols={2} />
+                        {/* 分页 */}
+                        {totalPages > 1 && (
+                          <div className="flex items-center justify-center gap-2 mt-8">
+                            {currentPage > 1 && (
+                              <Link
+                                href={`/?page=${currentPage - 1}`}
+                                className="px-4 py-2 text-sm border border-border dark:border-border-strong rounded-lg hover:bg-background-hover dark:hover:bg-background-hover transition-colors"
+                              >
+                                上一页
+                              </Link>
+                            )}
+                            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                              <Link
+                                key={page}
+                                href={`/?page=${page}`}
+                                className={`px-3 py-2 text-sm rounded-lg transition-colors ${
+                                  page === currentPage
+                                    ? 'bg-brand-orange text-white'
+                                    : 'border border-border dark:border-border-strong hover:bg-background-hover dark:hover:bg-background-hover'
+                                }`}
+                              >
+                                {page}
+                              </Link>
+                            ))}
+                            {currentPage < totalPages && (
+                              <Link
+                                href={`/?page=${currentPage + 1}`}
+                                className="px-4 py-2 text-sm border border-border dark:border-border-strong rounded-lg hover:bg-background-hover dark:hover:bg-background-hover transition-colors"
+                              >
+                                下一页
+                              </Link>
+                            )}
+                          </div>
+                        )}
+                      </>
                     ) : (
-                      <div className="text-center py-12 text-[#777777]">
+                      <div className="text-center py-12 text-text-muted">
                         <p className="text-lg mb-4">还没有文章</p>
                         <p>开始写第一篇文章吧！</p>
                       </div>
@@ -124,26 +173,23 @@ export default async function HomePage() {
                   </div>
 
                   {/* Categories Quick Access */}
-                  <div className="bg-white dark:bg-[#2A2A2A] rounded-12 shadow-sm p-6 border border-[#EBE7E0] dark:border-[#444444]">
-                    <h3 className="text-lg font-semibold text-[#1A1A1A] dark:text-[#E0E0E0] mb-4">分类导航</h3>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      {[
-                        { name: '前端开发', slug: 'frontend', count: 24 },
-                        { name: '后端技术', slug: 'backend', count: 18 },
-                        { name: 'DevOps', slug: 'devops', count: 12 },
-                        { name: '开源项目', slug: 'opensource', count: 8 },
-                      ].map((cat) => (
-                        <Link
-                          key={cat.slug}
-                          href={`/categories/${cat.slug}`}
-                          className="p-4 rounded-8 bg-[#F0EBE3] dark:bg-[#444444] hover:bg-[#D36F2B] hover:text-white transition-colors group"
-                        >
-                          <div className="font-medium">{cat.name}</div>
-                          <div className="text-sm opacity-60">{cat.count} 篇文章</div>
-                        </Link>
-                      ))}
+                  {formattedTags.length > 0 && (
+                    <div className="bg-background-base dark:bg-background-base rounded-12 shadow-sm p-6 border border-border dark:border-border-strong">
+                      <h3 className="text-lg font-semibold text-text-primary dark:text-text-primary mb-4">标签云</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {formattedTags.map((tag) => (
+                          <Link
+                            key={tag.slug}
+                            href={`/tags/${tag.slug}`}
+                            className="px-4 py-2 rounded-8 bg-background-hover dark:bg-background-hover hover:bg-brand-orange hover:text-white transition-colors group"
+                          >
+                            <span className="font-medium">{tag.name}</span>
+                            <span className="text-sm opacity-60 ml-1">({tag.count})</span>
+                          </Link>
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               </MainLayout>
             </Container>
@@ -161,8 +207,8 @@ export default async function HomePage() {
           <Section>
             <Container>
               <div className="text-center py-12">
-                <h1 className="text-2xl font-bold text-[#1A1A1A] dark:text-[#E0E0E0] mb-4">欢迎来到 QzBlog</h1>
-                <p className="text-[#777777]">加载中...</p>
+                <h1 className="text-2xl font-bold text-text-primary dark:text-text-primary mb-4">欢迎来到 QzBlog</h1>
+                <p className="text-text-muted">加载中...</p>
               </div>
             </Container>
           </Section>

@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
       .values({
         title: validatedData.title,
         description: validatedData.description,
-        eventDate: new Date(validatedData.eventDate),
+        eventDate: validatedData.eventDate,
         eventType: validatedData.eventType,
         icon: validatedData.icon,
         sortOrder: validatedData.sortOrder || 0,

@@ -34,10 +34,10 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
   const lines = code.split('\n')
 
   return (
-    <div className={cn('relative group rounded-card overflow-hidden bg-[#1e1e1e] dark:bg-[#0d1117]', className)}>
+    <div className={cn('relative group rounded-card overflow-hidden bg-background-base dark:bg-background-base', className)}>
       {/* Header */}
       {(filename || language) && (
-        <div className="flex items-center justify-between px-4 py-2 bg-[#2d2d2d] border-b border-[#404040]">
+        <div className="flex items-center justify-between px-4 py-2 bg-background-hover border-b border-border-strong">
           <div className="flex items-center space-x-2">
             {filename && (
               <span className="text-sm text-gray-300 font-medium">{filename}</span>
@@ -48,7 +48,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
           </div>
           <button
             onClick={handleCopy}
-            className="flex items-center space-x-1 px-2 py-1 rounded text-xs text-gray-400 hover:text-white hover:bg-[#404040] transition-colors"
+            className="flex items-center space-x-1 px-2 py-1 rounded text-xs text-gray-400 hover:text-white hover:bg-background-hover transition-colors"
             aria-label="Copy code"
           >
             {copied ? (
@@ -96,7 +96,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
       {!filename && !language && (
         <button
           onClick={handleCopy}
-          className="absolute top-2 right-2 p-2 rounded opacity-0 group-hover:opacity-100 bg-[#404040] hover:bg-[#505050] transition-all"
+          className="absolute top-2 right-2 p-2 rounded opacity-0 group-hover:opacity-100 bg-background-hover hover:bg-border-strong transition-all"
           aria-label="Copy code"
         >
           {copied ? (
@@ -128,7 +128,7 @@ export const InlineCode: React.FC<InlineCodeProps> = ({ className, children, ...
   return (
     <code
       className={cn(
-        'px-1.5 py-0.5 bg-[#f5f2ee] dark:bg-[#2d2d2d] text-brand-orange dark:text-[#e88b45] rounded text-sm font-mono',
+        'px-1.5 py-0.5 bg-background-cream dark:bg-background-hover text-brand-orange dark:text-brand-light rounded text-sm font-mono',
         className
       )}
       {...props}

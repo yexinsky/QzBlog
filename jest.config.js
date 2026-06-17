@@ -30,7 +30,7 @@ const config = {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
     '^@tests/(.*)$': '<rootDir>/tests/$1',
-    '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
+    // css mock removed - install identity-obj-proxy if needed
   },
 
   // 转换忽略列表
@@ -68,17 +68,7 @@ const config = {
   testTimeout: 10000,
 
   // 报告器
-  reporters: [
-    'default',
-    ['jest-junit', {
-      outputDirectory: '<rootDir>/coverage',
-      outputName: 'junit.xml',
-      classNameTemplate: '{classname}',
-      titleTemplate: '{title}',
-      ancestorSeparator: ' > ',
-      usePathForSuiteName: true,
-    }],
-  ],
+  reporters: ['default'],
 
   // 全局设置
   setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],

@@ -1,4 +1,4 @@
-# 测试工具函数
+// 测试工具函数
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ReactElement, ReactNode } from 'react';
 

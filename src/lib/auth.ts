@@ -3,8 +3,9 @@ import { DrizzleAdapter } from '@auth/drizzle-adapter';
 import GitHubProvider from 'next-auth/providers/github';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { db } from './db';
-import { users } from './db/schema';
+import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
+import type { Adapter } from 'next-auth/adapters';
 
 declare module 'next-auth' {
   interface Session {
@@ -35,7 +36,7 @@ declare module 'next-auth/jwt' {
 }
 
 export const authOptions: NextAuthOptions = {
-  adapter: DrizzleAdapter(db),
+  adapter: DrizzleAdapter(db) as Adapter,
   providers: [
     GitHubProvider({
       clientId: process.env.GITHUB_ID!,

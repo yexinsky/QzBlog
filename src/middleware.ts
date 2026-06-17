@@ -19,10 +19,10 @@ export default withAuth(
   }
 );
 
-// 配置需要保护的路由
+// 配置需要保护的路由（排除登录页）
 export const config = {
   matcher: [
-    '/admin/:path*',
+    '/admin/((?!login).*)',
     '/api/admin/:path*',
   ],
 };

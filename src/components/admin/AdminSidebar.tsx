@@ -18,7 +18,11 @@ const adminNavItems: NavItem[] = [
   { icon: PenTool, label: '文章管理', href: '/admin/posts' },
   { icon: Image, label: '动态管理', href: '/admin/moments' },
   { icon: MessageSquare, label: '评论管理', href: '/admin/comments' },
+  { icon: FolderGit2, label: '项目管理', href: '/admin/projects' },
+  { icon: Clock, label: '时间线', href: '/admin/timeline' },
+  { icon: BookOpen, label: '学习路线', href: '/admin/learning' },
   { icon: User, label: '个人资料', href: '/admin/profile' },
+  { icon: Settings, label: '站点设置', href: '/admin/settings' },
 ]
 
 interface AdminSidebarProps {
@@ -43,7 +47,10 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ className }) => {
       {/* Navigation */}
       <nav className="p-4 space-y-1">
         {adminNavItems.map(item => {
-          const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
+          // 精确匹配当前路径，或子路径匹配（但 /admin 不应匹配 /admin/posts）
+          const isExactMatch = pathname === item.href
+          const isChildMatch = item.href !== '/admin' && pathname.startsWith(item.href + '/')
+          const isActive = isExactMatch || isChildMatch
           return (
             <Link
               key={item.href}

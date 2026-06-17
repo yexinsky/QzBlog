@@ -60,15 +60,6 @@ export async function GET(
         },
         comments: {
           where: eq(schema.comments.status, 'approved'),
-          with: {
-            author: {
-              columns: {
-                id: true,
-                username: true,
-                avatarUrl: true,
-              },
-            },
-          },
           orderBy: [desc(schema.comments.isPinned), desc(schema.comments.createdAt)],
         },
       },

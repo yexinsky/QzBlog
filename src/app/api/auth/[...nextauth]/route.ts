@@ -1,3 +1,1 @@
-import { handler } from '@/lib/auth';
-
-export { handler as GET, handler as POST };
+export { GET, POST } from '@/lib/auth';

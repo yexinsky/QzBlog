@@ -65,7 +65,7 @@ export default function LearningPage() {
       case 'learning':
         return <Clock className="w-5 h-5 text-blue-500" />;
       default:
-        return <Circle className="w-5 h-5 text-[#777777]" />;
+        return <Circle className="w-5 h-5 text-text-muted" />;
     }
   };
 
@@ -81,7 +81,7 @@ export default function LearningPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F5F1EA] dark:bg-[#1E1E1E]">
+    <div className="min-h-screen bg-background-cream">
       <Header />
       <main className="py-8">
         <Container maxWidth="4xl">
@@ -91,9 +91,9 @@ export default function LearningPage() {
           />
 
           {isLoading ? (
-            <div className="text-center py-12 text-[#777777]">加载中...</div>
+            <div className="text-center py-12 text-text-muted">加载中...</div>
           ) : routes.length === 0 ? (
-            <div className="text-center py-12 text-[#777777]">
+            <div className="text-center py-12 text-text-muted">
               <BookOpen className="w-16 h-16 mx-auto mb-4 opacity-50" />
               <p className="text-lg mb-4">暂无学习路线</p>
               <p>博主还没有创建任何学习路线</p>
@@ -102,7 +102,7 @@ export default function LearningPage() {
             <div className="space-y-8">
               {routes.map((route) => (
                 <Card key={route.id} className="overflow-hidden">
-                  <CardHeader className="bg-gradient-to-r from-[#D36F2B] to-[#E8893C] p-6">
+                  <CardHeader className="bg-gradient-to-r from-brand-orange to-brand-light p-6">
                     <div className="flex items-start justify-between">
                       <div>
                         <h2 className="text-2xl font-bold text-white mb-2">{route.title}</h2>
@@ -144,7 +144,7 @@ export default function LearningPage() {
                                 ? 'bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800'
                                 : node.status === 'learning'
                                 ? 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800'
-                                : 'bg-white border-[#EBE7E0] dark:bg-[#2A2A2A] dark:border-[#444444]'
+                                : 'bg-background-base border-border dark:bg-background-base dark:border-border-strong'
                             )}
                           >
                             {/* 状态图标 */}
@@ -155,23 +155,23 @@ export default function LearningPage() {
                             {/* 内容 */}
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-1">
-                                <span className="text-sm font-medium text-[#777777]">
+                                <span className="text-sm font-medium text-text-muted">
                                   {index + 1}.
                                 </span>
-                                <h3 className="font-medium text-[#1A1A1A] dark:text-[#E0E0E0]">
+                                <h3 className="font-medium text-text-primary dark:text-text-primary">
                                   {node.title}
                                 </h3>
-                                <span className="text-xs px-2 py-0.5 rounded-full bg-[#EBE7E0] dark:bg-[#444444] text-[#777777]">
+                                <span className="text-xs px-2 py-0.5 rounded-full bg-background-hover dark:bg-background-hover text-text-muted">
                                   {getStatusText(node.status)}
                                 </span>
                               </div>
                               {node.description && (
-                                <p className="text-sm text-[#777777] mb-2">{node.description}</p>
+                                <p className="text-sm text-text-muted mb-2">{node.description}</p>
                               )}
                               {node.post && (
                                 <Link
                                   href={`/posts/${node.post.slug}`}
-                                  className="inline-flex items-center gap-1 text-sm text-[#D36F2B] hover:underline"
+                                  className="inline-flex items-center gap-1 text-sm text-brand-orange hover:underline"
                                 >
                                   📄 {node.post.title}
                                   <ArrowRight className="w-3 h-3" />
@@ -182,7 +182,7 @@ export default function LearningPage() {
                         ))}
                       </div>
                     ) : (
-                      <div className="text-center py-8 text-[#777777]">
+                      <div className="text-center py-8 text-text-muted">
                         <p>暂无学习节点</p>
                       </div>
                     )}

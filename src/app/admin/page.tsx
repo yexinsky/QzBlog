@@ -7,29 +7,108 @@ import { Card, CardHeader, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { FileText, MessageSquare, Eye, TrendingUp, Calendar, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
+import { db, schema } from '@/lib/db'
+import { eq, desc, sql, count } from 'drizzle-orm'
+import { formatDistanceToNow } from '@/lib/utils'
 
-// Mock data
-const stats = [
-  { label: '文章总数', value: '48', icon: FileText, change: '+3 本月' },
-  { label: '评论数', value: '156', icon: MessageSquare, change: '+12 本周' },
-  { label: '总阅读量', value: '12.3k', icon: Eye, change: '+8%' },
-  { label: '文章增长', value: '12%', icon: TrendingUp, change: '较上月' },
-]
+// 跳过静态生成，构建时不需要数据库连接
+export const dynamic = 'force-dynamic'
 
-const recentPosts = [
-  { title: 'Next.js 14 App Router 完全指南', date: '2024-01-15', views: 234, status: '已发布' },
-  { title: 'Tailwind CSS 最佳实践', date: '2024-01-10', views: 189, status: '已发布' },
-  { title: 'TypeScript 高级类型技巧', date: '2024-01-05', views: 156, status: '已发布' },
-  { title: 'Node.js 性能优化指南', date: '2024-01-01', views: 123, status: '草稿' },
-]
+export default async function AdminDashboard() {
+  // 获取文章统计
+  const [postsCountResult] = await db
+    .select({ count: count() })
+    .from(schema.posts)
+    .where(eq(schema.posts.status, 'published'))
+  const postsCount = postsCountResult?.count || 0
 
-const recentComments = [
-  { author: '访客A', content: '非常好的文章，学到了很多！', date: '2024-01-15' },
-  { author: '访客B', content: '请问如何实现这个功能？', date: '2024-01-14' },
-  { author: '访客C', content: '感谢博主的分享！', date: '2024-01-13' },
-]
+  // 获取草稿数量
+  const [draftsCountResult] = await db
+    .select({ count: count() })
+    .from(schema.posts)
+    .where(eq(schema.posts.status, 'draft'))
+  const draftsCount = draftsCountResult?.count || 0
 
-export default function AdminDashboard() {
+  // 获取评论统计
+  const [commentsCountResult] = await db
+    .select({ count: count() })
+    .from(schema.comments)
+  const commentsCount = commentsCountResult?.count || 0
+
+  // 获取待审核评论
+  const [pendingCommentsCountResult] = await db
+    .select({ count: count() })
+    .from(schema.comments)
+    .where(eq(schema.comments.status, 'pending'))
+  const pendingCommentsCount = pendingCommentsCountResult?.count || 0
+
+  // 获取总阅读量
+  const [totalViewsResult] = await db
+    .select({ total: sql<number>`sum(${schema.posts.viewCount})` })
+    .from(schema.posts)
+  const totalViews = totalViewsResult?.total || 0
+
+  // 获取最近发布的文章
+  const recentPosts = await db.query.posts.findMany({
+    where: eq(schema.posts.status, 'published'),
+    orderBy: [desc(schema.posts.publishedAt)],
+    limit: 5,
+    columns: {
+      title: true,
+      slug: true,
+      publishedAt: true,
+      viewCount: true,
+      status: true,
+    },
+  })
+
+  // 获取最近评论
+  const recentComments = await db.query.comments.findMany({
+    orderBy: [desc(schema.comments.createdAt)],
+    limit: 5,
+    columns: {
+      id: true,
+      authorName: true,
+      contentMd: true,
+      createdAt: true,
+    },
+  })
+
+  // 计算本月新增文章数（简单估算：最近30天发布的）
+  const thirtyDaysAgo = new Date()
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+  const recentPublishedPosts = await db
+    .select({ count: count() })
+    .from(schema.posts)
+    .where(eq(schema.posts.status, 'published'))
+
+  const stats = [
+    {
+      label: '文章总数',
+      value: postsCount.toString(),
+      icon: FileText,
+      subtext: `${draftsCount} 篇草稿`,
+    },
+    {
+      label: '评论数',
+      value: commentsCount.toString(),
+      icon: MessageSquare,
+      subtext: `${pendingCommentsCount} 待审核`,
+    },
+    {
+      label: '总阅读量',
+      value: totalViews >= 1000 ? `${(totalViews / 1000).toFixed(1)}k` : totalViews.toString(),
+      icon: Eye,
+      subtext: '累计访问',
+    },
+    {
+      label: '本月更新',
+      value: recentPublishedPosts[0]?.count?.toString() || '0',
+      icon: TrendingUp,
+      subtext: '发布文章',
+    },
+  ]
+
   return (
     <div className="flex min-h-screen bg-background-cream">
       <AdminSidebar />
@@ -51,7 +130,7 @@ export default function AdminDashboard() {
                     <div>
                       <p className="text-sm text-text-muted mb-1">{stat.label}</p>
                       <p className="text-3xl font-bold text-text-primary">{stat.value}</p>
-                      <p className="text-sm text-green-600 mt-1">{stat.change}</p>
+                      <p className="text-sm text-text-muted mt-1">{stat.subtext}</p>
                     </div>
                     <div className="w-12 h-12 bg-brand-orange/10 rounded-lg flex items-center justify-center">
                       <stat.icon className="w-6 h-6 text-brand-orange" />
@@ -75,25 +154,29 @@ export default function AdminDashboard() {
                 </Link>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {recentPosts.map((post, index) => (
-                    <div key={index} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-text-primary truncate">{post.title}</p>
-                        <div className="flex items-center space-x-2 text-xs text-text-muted mt-1">
-                          <Calendar className="w-3 h-3" />
-                          <span>{post.date}</span>
-                          <span>•</span>
-                          <Eye className="w-3 h-3" />
-                          <span>{post.views}</span>
+                {recentPosts.length > 0 ? (
+                  <div className="space-y-4">
+                    {recentPosts.map((post) => (
+                      <div key={post.slug} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-text-primary truncate">{post.title}</p>
+                          <div className="flex items-center space-x-2 text-xs text-text-muted mt-1">
+                            <Calendar className="w-3 h-3" />
+                            <span>{post.publishedAt ? formatDistanceToNow(post.publishedAt) : '未发布'}</span>
+                            <span>•</span>
+                            <Eye className="w-3 h-3" />
+                            <span>{post.viewCount || 0}</span>
+                          </div>
                         </div>
+                        <span className={`text-xs px-2 py-1 rounded ${post.status === 'published' ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400' : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400'}`}>
+                          {post.status === 'published' ? '已发布' : '草稿'}
+                        </span>
                       </div>
-                      <span className={`text-xs px-2 py-1 rounded ${post.status === '已发布' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                        {post.status}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-text-muted text-center py-8">暂无文章</p>
+                )}
               </CardContent>
             </Card>
 
@@ -109,24 +192,28 @@ export default function AdminDashboard() {
                 </Link>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {recentComments.map((comment, index) => (
-                    <div key={index} className="py-2 border-b border-border last:border-0">
-                      <div className="flex items-start space-x-3">
-                        <div className="w-8 h-8 bg-brand-orange rounded-full flex items-center justify-center text-white text-sm font-medium">
-                          {comment.author[0]}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between">
-                            <p className="text-sm font-medium text-text-primary">{comment.author}</p>
-                            <span className="text-xs text-text-muted">{comment.date}</span>
+                {recentComments.length > 0 ? (
+                  <div className="space-y-4">
+                    {recentComments.map((comment) => (
+                      <div key={comment.id} className="py-2 border-b border-border last:border-0">
+                        <div className="flex items-start space-x-3">
+                          <div className="w-8 h-8 bg-brand-orange rounded-full flex items-center justify-center text-white text-sm font-medium">
+                            {comment.authorName?.[0] || '匿'}
                           </div>
-                          <p className="text-sm text-text-secondary mt-1 line-clamp-2">{comment.content}</p>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <p className="text-sm font-medium text-text-primary">{comment.authorName || '匿名用户'}</p>
+                              <span className="text-xs text-text-muted">{comment.createdAt ? formatDistanceToNow(comment.createdAt) : ''}</span>
+                            </div>
+                            <p className="text-sm text-text-secondary mt-1 line-clamp-2">{comment.contentMd}</p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-text-muted text-center py-8">暂无评论</p>
+                )}
               </CardContent>
             </Card>
           </div>

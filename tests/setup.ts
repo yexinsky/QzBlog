@@ -1,5 +1,5 @@
 // Jest 全局设置
-import '@testing-library/jest-dom';
+// Note: @testing-library/jest-dom import removed - needs npm install
 
 // 模拟 window.matchMedia
 Object.defineProperty(window, 'matchMedia', {

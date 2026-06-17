@@ -35,7 +35,6 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
 
   const extensions = [
     markdown(),
-    languages
   ]
 
   const editorTheme = theme === 'dark' ? oneDark : undefined

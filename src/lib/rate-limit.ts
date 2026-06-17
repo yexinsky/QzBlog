@@ -2,43 +2,46 @@ import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
 import { NextRequest, NextResponse } from 'next/server';
 
-// 创建 Redis 客户端
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL!,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
-});
+// 检查 Redis 是否配置
+const isRedisConfigured = !!(
+  process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
+);
+
+// 创建 Redis 客户端（仅在配置存在时）
+const redis = isRedisConfigured
+  ? new Redis({
+      url: process.env.UPSTASH_REDIS_REST_URL!,
+      token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+    })
+  : null;
+
+// 创建限流器的辅助函数，未配置时返回 null
+function createRatelimit(prefix: string, windowSize: string, maxRequests: number) {
+  if (!redis) return null;
+  // 解析窗口大小
+  const match = windowSize.match(/^(\d+)\s*(s|m|h)$/);
+  if (!match) return null;
+  const [, num, unit] = match;
+  const duration = unit === 's' ? `${num} seconds` : unit === 'm' ? `${num} minutes` : `${num} hours`;
+  return new Ratelimit({
+    redis,
+    limiter: Ratelimit.slidingWindow(maxRequests, duration as any),
+    analytics: true,
+    prefix: `ratelimit:${prefix}`,
+  });
+}
 
 // 评论/点赞限流：10次/分钟/IP
-export const commentRatelimit = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(10, '1 m'),
-  analytics: true,
-  prefix: 'ratelimit:comment',
-});
+export const commentRatelimit = createRatelimit('comment', '1m', 10);
 
 // 登录限流：5次/分钟/IP
-export const loginRatelimit = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(5, '1 m'),
-  analytics: true,
-  prefix: 'ratelimit:login',
-});
+export const loginRatelimit = createRatelimit('login', '1m', 5);
 
 // 全局限流：100次/分钟/IP
-export const globalRatelimit = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(100, '1 m'),
-  analytics: true,
-  prefix: 'ratelimit:global',
-});
+export const globalRatelimit = createRatelimit('global', '1m', 100);
 
 // 动态限流：5次/分钟/IP
-export const momentRatelimit = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(5, '1 m'),
-  analytics: true,
-  prefix: 'ratelimit:moment',
-});
+export const momentRatelimit = createRatelimit('moment', '1m', 5);
 
 /**
  * 从请求中获取客户端IP
@@ -63,11 +66,15 @@ export function getClientIP(request: NextRequest): string {
  */
 export async function checkRatelimit(
   request: NextRequest,
-  limiter: Ratelimit,
+  limiter: Ratelimit | null,
   identifier?: string
 ): Promise<{ success: boolean; remaining: number; reset: number }> {
-  const ip = identifier || getClientIP(request);
+  // 未配置 Redis 时跳过限流
+  if (!limiter || !redis) {
+    return { success: true, remaining: 100, reset: Date.now() + 60000 };
+  }
 
+  const ip = identifier || getClientIP(request);
   const result = await limiter.limit(ip);
 
   return {
@@ -114,12 +121,17 @@ export function createRatelimitResponse(): NextResponse {
  * 组合中间件函数，用于在API路由中使用
  */
 export function withRatelimit(
-  limiter: Ratelimit,
+  limiter: Ratelimit | null,
   identifierExtractor?: (req: NextRequest) => string
 ) {
   return async function (
     request: NextRequest
   ): Promise<{ success: boolean; response?: NextResponse }> {
+    // 未配置 Redis 时跳过限流
+    if (!limiter || !redis) {
+      return { success: true };
+    }
+
     const identifier = identifierExtractor
       ? identifierExtractor(request)
       : getClientIP(request);

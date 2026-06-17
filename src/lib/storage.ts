@@ -9,18 +9,18 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 
-// S3客户端配置
+// S3客户端配置（使用 MINIO 环境变量）
 const s3Client = new S3Client({
-  region: process.env.S3_REGION || 'auto',
-  endpoint: process.env.S3_ENDPOINT,
+  region: process.env.MINIO_REGION || 'auto',
+  endpoint: `http://${process.env.MINIO_ENDPOINT}:${process.env.MINIO_PORT || '9000'}`,
   credentials: {
-    accessKeyId: process.env.S3_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.S3_SECRET_ACCESS_KEY!,
+    accessKeyId: process.env.MINIO_ACCESS_KEY!,
+    secretAccessKey: process.env.MINIO_SECRET_KEY!,
   },
   forcePathStyle: true, // MinIO需要这个选项
 });
 
-const BUCKET_NAME = process.env.S3_BUCKET_NAME || 'qzblog';
+const BUCKET_NAME = process.env.MINIO_BUCKET || 'qzblog';
 const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const UPLOAD_PATH_PREFIX = 'uploads';
@@ -79,12 +79,11 @@ export async function uploadFile(
       Key: key,
       Body: buffer,
       ContentType: contentType,
-      ACL: 'public-read',
     })
   );
 
-  const url = `${process.env.S3_PUBLIC_URL}/${key}`;
-  return { url, key };
+  // 返回 key（不含 URL），展示时通过 /api/storage/signed-url 动态生成签名 URL
+  return { url: key, key };
 }
 
 /**
@@ -135,7 +134,7 @@ export async function deleteFile(key: string): Promise<void> {
  * 获取文件公开URL
  */
 export function getPublicUrl(key: string): string {
-  return `${process.env.S3_PUBLIC_URL}/${key}`;
+  return `${process.env.MINIO_PUBLIC_URL}/${key}`;
 }
 
 /**

@@ -10,23 +10,23 @@ module.exports = {
     extend: {
       colors: {
         brand: {
-          orange: '#D36F2B',
-          light: '#E88B45',
-          dark: '#B8591F',
+          orange: 'var(--color-primary)',
+          light: 'var(--color-primary-light)',
+          dark: 'var(--color-primary-dark)',
         },
         background: {
-          base: '#FFFFFF',
-          cream: '#F5F1EA',
-          hover: '#F0EBE3',
+          base: 'var(--color-bg-base)',
+          cream: 'var(--color-bg-cream)',
+          hover: 'var(--color-bg-hover)',
         },
         border: {
-          DEFAULT: '#EBE7E0',
-          strong: '#D9D2C8',
+          DEFAULT: 'var(--color-border)',
+          strong: 'var(--color-border-strong)',
         },
         text: {
-          primary: '#1A1A1A',
-          secondary: '#444444',
-          muted: '#777777',
+          primary: 'var(--color-text-primary)',
+          secondary: 'var(--color-text-secondary)',
+          muted: 'var(--color-text-muted)',
         }
       },
       fontFamily: {

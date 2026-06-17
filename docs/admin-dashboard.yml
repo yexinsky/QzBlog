@@ -1,0 +1,98 @@
+- generic [active] [ref=e1]:
+  - alert [ref=e2]
+  - generic [ref=e106]:
+    - complementary [ref=e107]:
+      - link "Q 管理后台" [ref=e109] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e111]: Q
+        - generic [ref=e112]: 管理后台
+      - navigation [ref=e113]:
+        - link "仪表盘" [ref=e114] [cursor=pointer]:
+          - /url: /admin
+          - img [ref=e115]
+          - generic [ref=e120]: 仪表盘
+        - link "文章管理" [ref=e121] [cursor=pointer]:
+          - /url: /admin/posts
+          - img [ref=e122]
+          - generic [ref=e127]: 文章管理
+        - link "动态管理" [ref=e128] [cursor=pointer]:
+          - /url: /admin/moments
+          - img [ref=e129]
+          - generic [ref=e133]: 动态管理
+        - link "评论管理" [ref=e134] [cursor=pointer]:
+          - /url: /admin/comments
+          - img [ref=e135]
+          - generic [ref=e137]: 评论管理
+        - link "项目管理" [ref=e138] [cursor=pointer]:
+          - /url: /admin/projects
+          - img [ref=e139]
+          - generic [ref=e144]: 项目管理
+        - link "时间线" [ref=e145] [cursor=pointer]:
+          - /url: /admin/timeline
+          - img [ref=e146]
+          - generic [ref=e149]: 时间线
+        - link "学习路线" [ref=e150] [cursor=pointer]:
+          - /url: /admin/learning
+          - img [ref=e151]
+          - generic [ref=e154]: 学习路线
+        - link "个人资料" [ref=e155] [cursor=pointer]:
+          - /url: /admin/profile
+          - img [ref=e156]
+          - generic [ref=e159]: 个人资料
+        - link "站点设置" [ref=e160] [cursor=pointer]:
+          - /url: /admin/settings
+          - img [ref=e161]
+          - generic [ref=e164]: 站点设置
+        - link "返回前台" [ref=e166] [cursor=pointer]:
+          - /url: /
+          - img [ref=e167]
+          - generic [ref=e170]: 返回前台
+    - main [ref=e171]:
+      - generic [ref=e172]:
+        - generic [ref=e173]:
+          - heading "仪表盘" [level=1] [ref=e174]
+          - paragraph [ref=e175]: 欢迎回来！以下是您的博客概览。
+        - generic [ref=e176]:
+          - generic [ref=e179]:
+            - generic [ref=e180]:
+              - paragraph [ref=e181]: 文章总数
+              - paragraph [ref=e182]: "0"
+              - paragraph [ref=e183]: 0 篇草稿
+            - img [ref=e185]
+          - generic [ref=e190]:
+            - generic [ref=e191]:
+              - paragraph [ref=e192]: 评论数
+              - paragraph [ref=e193]: "0"
+              - paragraph [ref=e194]: 0 待审核
+            - img [ref=e196]
+          - generic [ref=e200]:
+            - generic [ref=e201]:
+              - paragraph [ref=e202]: 总阅读量
+              - paragraph [ref=e203]: "0"
+              - paragraph [ref=e204]: 累计访问
+            - img [ref=e206]
+          - generic [ref=e211]:
+            - generic [ref=e212]:
+              - paragraph [ref=e213]: 本月更新
+              - paragraph [ref=e214]: "0"
+              - paragraph [ref=e215]: 发布文章
+            - img [ref=e217]
+        - generic [ref=e220]:
+          - generic [ref=e221]:
+            - generic [ref=e222]:
+              - heading "最近文章" [level=2] [ref=e223]
+              - link "查看全部" [ref=e224] [cursor=pointer]:
+                - /url: /admin/posts
+                - button "查看全部" [ref=e225]:
+                  - text: 查看全部
+                  - img [ref=e226]
+            - paragraph [ref=e229]: 暂无文章
+          - generic [ref=e230]:
+            - generic [ref=e231]:
+              - heading "最近评论" [level=2] [ref=e232]
+              - link "查看全部" [ref=e233] [cursor=pointer]:
+                - /url: /admin/comments
+                - button "查看全部" [ref=e234]:
+                  - text: 查看全部
+                  - img [ref=e235]
+            - paragraph [ref=e238]: 暂无评论

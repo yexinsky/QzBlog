@@ -137,6 +137,7 @@ export async function GET(
         summary: true,
         coverImage: true,
         status: true,
+        authorId: true,
         scheduledAt: true,
         cancelScheduled: true,
         createdAt: true,
