@@ -5,7 +5,7 @@ import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { Container } from '@/components/layout/Container';
 import { Card, CardHeader, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { ImageUpload } from '@/components/ui/ImageUpload';
+import { AvatarUpload } from '@/components/ui/AvatarUpload';
 import { Save, Plus, Trash2, Edit, X } from 'lucide-react';
 
 interface SiteSettings {
@@ -318,12 +318,11 @@ export default function AdminProfilePage() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <ImageUpload
+                <AvatarUpload
                   value={siteSettings.avatarUrl}
                   onChange={(url) => setSiteSettings({ ...siteSettings, avatarUrl: url })}
                   onClear={() => setSiteSettings({ ...siteSettings, avatarUrl: null })}
                   label="博主头像"
-                  maxSize={5}
                 />
                 <div className="space-y-4">
                   <div>

@@ -24,7 +24,14 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # local env files
+.env
 .env*.local
+
+# playwright mcp
+.playwright-mcp/
+
+# nginx logs
+nginx/logs/
 
 # vercel
 .vercel

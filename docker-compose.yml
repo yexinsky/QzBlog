@@ -1,4 +1,4 @@
-version: '3.8'
+#version: '3.8'
 
 services:
   # Next.js Application
@@ -37,7 +37,7 @@ services:
       - "5433:5432"
     environment:
       - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_PASSWORD=Qqwe13356480410@
       - POSTGRES_DB=qzblog
     volumes:
       - postgres-data:/var/lib/postgresql/data
