@@ -1,12 +1,23 @@
 'use client'
 
-import React, { useCallback } from 'react'
-import CodeMirror from '@uiw/react-codemirror'
+import React, { useCallback, useMemo, useRef } from 'react'
+import CodeMirror, { ReactCodeMirrorRef } from '@uiw/react-codemirror'
 import { markdown } from '@codemirror/lang-markdown'
 import { languages } from '@codemirror/language-data'
 import { oneDark } from '@codemirror/theme-one-dark'
+import { EditorView } from '@codemirror/view'
+import { ChangeSpec } from '@codemirror/state'
 import { useTheme } from '@/hooks/useTheme'
 import { cn } from '@/lib/utils'
+import {
+  EditorSnapshot,
+  EditorUpdate,
+  wrapSelection,
+  linkWrap,
+  imageWrap,
+  insertLinePrefix,
+  insertBlock,
+} from '@/components/comments/markdownInsert'
 
 interface MarkdownEditorProps {
   value: string
@@ -33,10 +44,7 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
     onChange(val)
   }, [onChange])
 
-  const extensions = [
-    markdown(),
-    languages
-  ]
+  const extensions = useMemo(() => [markdown({ codeLanguages: languages })], [])
 
   const editorTheme = theme === 'dark' ? oneDark : undefined
 
@@ -66,62 +74,159 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
         }}
         editable={!disabled}
         className="text-base"
-        style={{
-          fontSize: '14px'
-        }}
+        style={{ fontSize: '14px' }}
       />
     </div>
   )
 }
 
-interface MarkdownEditorToolbarProps {
-  onInsert: (text: string, placeholder?: string) => void
-  className?: string
+/**
+ * High-level toolbar actions. Each maps to a pure helper in markdownInsert.ts.
+ */
+export type MarkdownToolbarAction =
+  | 'heading1' | 'heading2' | 'heading3'
+  | 'bold' | 'italic' | 'strikethrough'
+  | 'link' | 'image'
+  | 'inlineCode' | 'codeBlock'
+  | 'quote' | 'unorderedList' | 'orderedList' | 'taskList'
+  | 'table'
+
+/**
+ * Compute the EditorUpdate for a toolbar action against a snapshot of the
+ * current document + selection. Pure function so it can be unit-tested
+ * without CodeMirror.
+ */
+export function computeMarkdownUpdate(
+  action: MarkdownToolbarAction,
+  snap: EditorSnapshot
+): EditorUpdate {
+  switch (action) {
+    case 'heading1': return insertLinePrefix(snap, '# ')
+    case 'heading2': return insertLinePrefix(snap, '## ')
+    case 'heading3': return insertLinePrefix(snap, '### ')
+    case 'bold':     return wrapSelection(snap, '**', '**', '粗体文字')
+    case 'italic':   return wrapSelection(snap, '*', '*', '斜体文字')
+    case 'strikethrough':
+      return wrapSelection(snap, '~~', '~~', '删除线')
+    case 'link':     return linkWrap(snap, '链接文字', 'https://')
+    case 'image':    return imageWrap(snap, '图片描述', 'https://')
+    case 'inlineCode':
+      return wrapSelection(snap, '`', '`', '代码')
+    case 'codeBlock':
+      return insertBlock(snap, '```\n', '\n```', '代码块')
+
+    case 'quote':    return insertLinePrefix(snap, '> ')
+    case 'unorderedList':
+      return insertLinePrefix(snap, '- ')
+    case 'orderedList':
+      return insertLinePrefix(snap, '1. ')
+    case 'taskList':
+      return insertLinePrefix(snap, '- [ ] ')
+    case 'table':
+      return insertBlock(
+        snap,
+        '| 列1 | 列2 | 列3 |\n| --- | --- | --- |\n',
+        '',
+        '| 内容 | 内容 | 内容 |'
+      )
+    default: {
+      const exhaustive: never = action
+      throw new Error('Unknown toolbar action: ' + (exhaustive as unknown as string))
+    }
+  }
 }
 
-export const MarkdownEditorToolbar: React.FC<MarkdownEditorToolbarProps> = ({ onInsert, className }) => {
-  const tools = [
-    { label: 'H1', action: () => onInsert('# ', '标题1'), title: '标题1' },
-    { label: 'H2', action: () => onInsert('## ', '标题2'), title: '标题2' },
-    { label: 'H3', action: () => onInsert('### ', '标题3'), title: '标题3' },
-    { type: 'divider' },
-    { label: 'B', action: () => onInsert('**', '粗体文字'), title: '粗体', bold: true },
-    { label: 'I', action: () => onInsert('*', '斜体文字'), title: '斜体', italic: true },
-    { label: 'S', action: () => onInsert('~~', '删除线文字'), title: '删除线', strikethrough: true },
-    { type: 'divider' },
-    { label: '链接', action: () => onInsert('[', '链接文字'), title: '链接' },
-    { label: '图片', action: () => onInsert('![', '图片alt'), title: '图片' },
-    { label: '代码', action: () => onInsert('`', '代码'), title: '行内代码' },
-    { label: '代码块', action: () => onInsert('\n```\n\n```\n', '代码块'), title: '代码块' },
-    { type: 'divider' },
-    { label: '引用', action: () => onInsert('> ', '引用内容'), title: '引用' },
-    { label: '列表', action: () => onInsert('- ', '列表项'), title: '无序列表' },
-    { label: '有序列表', action: () => onInsert('1. ', '列表项'), title: '有序列表' },
-    { label: '任务', action: () => onInsert('- [ ] ', '任务项'), title: '任务列表' },
-    { type: 'divider' },
-    { label: '表格', action: () => onInsert('\n| 列1 | 列2 | 列3 |\n| --- | --- | --- |\n| 内容 | 内容 | 内容 |\n', '表格'), title: '表格' },
-  ]
+/**
+ * Apply an EditorUpdate to a CodeMirror view, preserving any other selections.
+ */
+export function applyMarkdownUpdate(view: EditorView, update: EditorUpdate): void {
+  const main = view.state.selection.main
+  const selLength = main.to - main.from
 
+  const specs: ChangeSpec[] = update.changes.map(ch => ({
+    from: ch.from,
+    to: ch.to,
+    insert: ch.insert,
+  }))
+
+  view.dispatch({
+    changes: specs,
+    selection: selLength > 0
+      ? { anchor: update.cursor, head: update.cursor }
+      : { anchor: update.cursor },
+    scrollIntoView: true,
+  })
+  view.focus()
+}
+
+interface MarkdownEditorToolbarProps {
+  /**
+   * Receive a toolbar action. MarkdownEditorWithToolbar wires this up to a
+   * CodeMirror transaction; consumers can also wire it to a custom callback.
+   */
+  onAction: (action: MarkdownToolbarAction) => void
+  className?: string
+  disabled?: boolean
+}
+
+interface ToolbarItem {
+  label: string
+  title: string
+  action: MarkdownToolbarAction
+  bold?: boolean
+  italic?: boolean
+  strikethrough?: boolean
+}
+
+type ToolbarEntry = ToolbarItem | { type: 'divider' }
+
+const TOOLBAR_ITEMS: ToolbarEntry[] = [
+  { label: 'H1', title: '标题1', action: 'heading1' },
+  { label: 'H2', title: '标题2', action: 'heading2' },
+  { label: 'H3', title: '标题3', action: 'heading3' },
+  { type: 'divider' },
+  { label: 'B', title: '粗体', action: 'bold', bold: true },
+  { label: 'I', title: '斜体', action: 'italic', italic: true },
+  { label: 'S', title: '删除线', action: 'strikethrough', strikethrough: true },
+  { type: 'divider' },
+  { label: '链接', title: '链接', action: 'link' },
+  { label: '图片', title: '图片', action: 'image' },
+  { label: '代码', title: '行内代码', action: 'inlineCode' },
+  { label: '代码块', title: '代码块', action: 'codeBlock' },
+  { type: 'divider' },
+  { label: '引用', title: '引用', action: 'quote' },
+  { label: '列表', title: '无序列表', action: 'unorderedList' },
+  { label: '有序列表', title: '有序列表', action: 'orderedList' },
+  { label: '任务', title: '任务列表', action: 'taskList' },
+  { type: 'divider' },
+  { label: '表格', title: '表格', action: 'table' },
+]
+
+export const MarkdownEditorToolbar: React.FC<MarkdownEditorToolbarProps> = ({ onAction, className, disabled }) => {
   return (
     <div className={cn('flex items-center flex-wrap gap-1 p-2 border-b border-border bg-background-cream', className)}>
-      {tools.map((tool, index) => {
-        if (tool.type === 'divider') {
-          return <div key={index} className="w-px h-6 bg-border mx-1" />
+      {TOOLBAR_ITEMS.map((item, index) => {
+        if ('type' in item && item.type === 'divider') {
+          return <div key={String('d-'+index)} className="w-px h-6 bg-border mx-1" aria-hidden="true" />
         }
-
+        const t = item as ToolbarItem
         return (
           <button
-            key={index}
-            onClick={tool.action}
-            className="px-2 py-1 text-sm font-medium text-text-secondary hover:bg-background-hover rounded transition-colors"
+            key={t.action}
+            type="button"
+            onClick={() => onAction(t.action)}
+            disabled={disabled}
+            className="px-2 py-1 text-sm font-medium text-text-secondary hover:bg-background-hover rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             style={{
-              fontWeight: tool.bold ? 'bold' : undefined,
-              fontStyle: tool.italic ? 'italic' : undefined,
-              textDecoration: tool.strikethrough ? 'line-through' : undefined
+              fontWeight: t.bold ? 'bold' : undefined,
+              fontStyle: t.italic ? 'italic' : undefined,
+              textDecoration: t.strikethrough ? 'line-through' : undefined,
             }}
-            title={tool.title}
+            title={t.title}
+            aria-label={t.title}
+            data-md-action={t.action}
           >
-            {tool.label}
+            {t.label}
           </button>
         )
       })}
@@ -138,15 +243,33 @@ export const MarkdownEditorWithToolbar: React.FC<MarkdownEditorWithToolbarProps>
   className,
   ...props
 }) => {
-  const handleInsert = useCallback((text: string) => {
-    const newValue = props.value + text
-    props.onChange(newValue)
-  }, [props])
+  const cmRef = useRef<ReactCodeMirrorRef | null>(null)
+
+  const handleAction = useCallback((action: MarkdownToolbarAction) => {
+    const view = cmRef.current?.view
+    if (!view) return
+    const main = view.state.selection.main
+    const snap: EditorSnapshot = {
+      text: view.state.doc.toString(),
+      selectionFrom: main.from,
+      selectionTo: main.to,
+    }
+    const update = computeMarkdownUpdate(action, snap)
+    applyMarkdownUpdate(view, update)
+  }, [])
 
   return (
     <div className={cn('rounded-card overflow-hidden border border-border', className)}>
-      {showToolbar && <MarkdownEditorToolbar onInsert={handleInsert} />}
-      <MarkdownEditor {...props} className="rounded-none border-0" />
+      {showToolbar && <MarkdownEditorToolbar onAction={handleAction} disabled={props.disabled} />}
+      <CodeMirror
+        ref={cmRef}
+        value={props.value}
+        height={props.minHeight ?? '400px'}
+        extensions={[markdown({ codeLanguages: languages })]}
+        onChange={props.onChange}
+        placeholder={props.placeholder}
+        editable={!props.disabled}
+      />
     </div>
   )
 }

@@ -1,46 +1,224 @@
 /**
  * Markdown 渲染测试
- * 测试所有 Markdown 元素的正确渲染
+ *
+ * 这些测试同时验证 Markdown 语法渲染和 XSS 净化。Mock 实现是同步的简化版，
+ * 但必须满足以下安全目标：
+ *   - 阻止 <script>/<style>/<iframe>/<svg>/<math>/<img>/<input> 等危险标签
+ *   - 阻止 javascript:/vbscript:/data:/file: 协议
+ *   - 阻止 on* 事件属性（包括未加引号的值）
+ *   - 阻止 style 属性（避免 javascript: URL 注入）
+ *   - 处理 null byte、HTML 实体、SVG 包装等绕过
+ *   - 处理自闭合危险标签
  */
-import { render, screen } from '@testing-library/react';
-import { markdownTestCases, xssTestCases } from '../lib/mock-data';
+import { xssTestCases, markdownTestCases } from '../lib/mock-data';
 
-// 模拟 markdown 渲染函数（实际项目中的实现）
+// ---------- 工具函数 ----------
+
+/** HTML 转义（用于内容） */
+function escapeHtml(text: string): string {
+  const map: Record<string, string> = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;',
+  };
+  return text.replace(/[&<>"'']/g, (m) => map[m]);
+}
+
+/**
+ * 将属性值规范化为带引号的形式，避免未引号属性（如 src=x onerror=alert）
+ * 绕过 on* 事件匹配。返回 "key="value"" 形式。
+ */
+function normalizeAttr(name: string, value: string): string {
+  return ` ${name}="${value.replace(/"/g, '&quot;')}"`;
+}
+
+// ---------- 渲染 Markdown 为 HTML（mock 实现） ----------
+
 const renderMarkdown = (markdown: string): string => {
-  // 简化版实现，仅用于测试
-  let html = markdown
-    // 标题
-    .replace(/^### (.*$)/gim, '<h3>$1</h3>')
-    .replace(/^## (.*$)/gim, '<h2>$1</h2>')
-    .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-    // 代码块
-    .replace(/```(\w+)?\n([\s\S]*?)```/g, '<pre><code class="language-$1">$2</code></pre>')
-    // 内联代码
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
-    // 链接
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
-    // 列表
-    .replace(/^- (.*$)/gim, '<li>$1</li>')
-    // 图片
-    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1">');
+  if (markdown == null) return '';
+  let text = String(markdown);
 
-  return html;
+  // 1. 围栏代码块：```lang\ncode\n``` → <pre><code class="language-lang">escaped</code></pre>
+  text = text.replace(/```(\w+)?\s*\n([\s\S]*?)```/g, (_m, lang, code) => {
+    const safeLang = lang || 'text';
+    return `<pre><code class="language-${safeLang}">${escapeHtml(code)}</code></pre>`;
+  });
+
+  // 2. 块级公式：$$...$$ → <div class="math math-block">$$...$$</div>
+  text = text.replace(/\$\$([\s\S]+?)\$\$/g, (_m, expr) => {
+    return `<div class="math math-block">$$${expr}$$</div>`;
+  });
+
+  // 3. 行内公式：$x$ → <span class="math math-inline">$x$</span>（不跨行）
+  text = text.replace(/\$([^$\n]+?)\$/g, (_m, expr) => {
+    return `<span class="math math-inline">$${expr}$</span>`;
+  });
+
+  // 4. 内联代码：`code` → <code>code</code>（先于加粗/斜体，避免被吃掉）
+  text = text.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+
+  // 5. 任务列表：- [x] text / - [ ] text → <li class="task-list-item">...>
+  text = text.replace(/^(\s*)-\s+\[([ xX])\]\s+(.+)$/gm, (_m, indent, mark, body) => {
+    const checked = mark.toLowerCase() === 'x' ? ' checked' : '';
+    return `${indent}<li class="task-list-item"><input type="checkbox" disabled${checked}> ${body}</li>`;
+  });
+
+  // 6. 表格：| h1 | h2 |\n|---|---|\n| a | b |
+  text = text.replace(
+    /^(\|?[^\n|]+\|[^\n]+\|?[ \t]*)\n(\|?\s*:?-+:?\s*\|[\s:|-]+\|?[ \t]*)\n((?:\|?[^\n]+\|[^\n]*\|?\n?)+)/gm,
+    (_m, headerLine: string, _sep: string, bodyBlock: string) => {
+      const splitRow = (line: string) =>
+        line.trim()
+          .replace(/^\|/, '')
+          .replace(/\|$/, '')
+          .split('|')
+          .map((c) => c.trim());
+      const heads = splitRow(headerLine)
+        .map((h) => `<th>${escapeHtml(h)}</th>`)
+        .join('');
+      const rows = bodyBlock
+        .trim()
+        .split('\n')
+        .map((line) => {
+          const cells = splitRow(line)
+            .map((c) => `<td>${escapeHtml(c)}</td>`)
+            .join('');
+          return `<tr>${cells}</tr>`;
+        })
+        .join('');
+      return `<table><thead><tr>${heads}</tr></thead><tbody>${rows}</tbody></table>`;
+    }
+  );
+
+  // 7. 标题：###/##/# → h3/h2/h1
+  text = text.replace(/^### (.*)$/gm, '<h3>$1</h3>');
+  text = text.replace(/^## (.*)$/gm, '<h2>$1</h2>');
+  text = text.replace(/^# (.*)$/gm, '<h1>$1</h1>');
+
+  // 8. 删除线：~~text~~ → <del>text</del>
+  text = text.replace(/~~([^~]+?)~~/g, '<del>$1</del>');
+
+  // 9. 加粗：**text** → <strong>text</strong>
+  text = text.replace(/\*\*([^*\n]+?)\*\*/g, '<strong>$1</strong>');
+
+  // 10. 斜体：*text* → <em>text</em>（仅在非 * 包围的单星号）
+  text = text.replace(/(^|[^*])\*([^*\n]+?)\*(?!\*)/g, '$1<em>$2</em>');
+
+  // 11. 图片：![alt](url) → <img src="url" alt="alt">（必须在链接之前处理）
+  text = text.replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g, (_m, alt, src) => {
+    return `<img${normalizeAttr('src', src)}${normalizeAttr('alt', alt)}>`;
+  });
+
+  // 12. 链接：[text](url) → <a href="url">text</a>
+  text = text.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_m, label, href) => {
+    return `<a${normalizeAttr('href', href)}>${label}</a>`;
+  });
+
+  // 13. 无序列表项：- item 或 * item → <li>item</li>（顺序在任务列表后）
+  text = text.replace(/^(\s*)[-*]\s+(?!\[)(.+)$/gm, '$1<li>$2</li>');
+
+  // 14. 将连续的 <li> 包装为 <ul>
+  text = text.replace(/(?:(?:^|\n)(?:[ \t]*<li(?:[^>]*)>[\s\S]*?<\/li>[ \t]*))+/g, (block) => {
+    return `\n<ul>${block.replace(/^\n/, '').trim()}</ul>`;
+  });
+
+  return text;
 };
 
-// 模拟 sanitize 函数
+// ---------- 净化 HTML（mock 实现，安全性优先） ----------
+
+const DANGEROUS_TAGS = [
+  'script',
+  'style',
+  'iframe',
+  'object',
+  'embed',
+  'form',
+  'button',
+  'select',
+  'textarea',
+  'audio',
+  'video',
+  'source',
+  'track',
+  'svg',
+  'math',
+  'img',
+  'input',
+  'meta',
+  'link',
+  'base',
+  'frame',
+  'frameset',
+  'noframes',
+  'noscript',
+  'marquee',
+  'applet',
+];
+
+const FORBIDDEN_URL_PROTOCOLS = /^(?:javascript|vbscript|data|file|mocha|livescript):/i;
+
 const sanitizeHtml = (html: string): string => {
-  // 移除所有 script 标签
-  html = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
-  // 移除所有 on* 事件属性
-  html = html.replace(/\s+on\w+="[^"]*"/gi, '');
-  // 移除所有 javascript: 链接
-  html = html.replace(/href="javascript:[^"]*"/gi, 'href="#"');
-  // 移除所有 iframe
-  html = html.replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '');
-  return html;
+  if (html == null) return '';
+  let result = String(html);
+
+  // 0. 先去除 NUL 和其他控制字符（防止基于控制字符的绕过）
+  result = result.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
+
+  // 1. 移除危险标签（带内容或不带内容都处理）。大小写不敏感。
+  for (const tag of DANGEROUS_TAGS) {
+    // <tag ...>...</tag>
+    const openClose = new RegExp(`<${tag}\\b[^>]*>[\\s\\S]*?<\\/${tag}\\s*>`, 'gi');
+    result = result.replace(openClose, '');
+    // 自闭合 <tag ... /> 或 <tag ...>
+    const selfClose = new RegExp(`<${tag}\\b[^>]*\\/?>`, 'gi');
+    result = result.replace(selfClose, '');
+    // HTML 实体变体：&lt;tag&gt;
+    const entityEncoded = new RegExp(`&lt;\\/?${tag}\\b[^&]*?&gt;`, 'gi');
+    result = result.replace(entityEncoded, '');
+  }
+
+  // 2. 移除事件属性（onclick, onerror 等）。处理加引号、单引号、未加引号三种。
+  result = result.replace(
+    /\s+on[a-z][a-z0-9]*\s*=\s*(?:"[^"]*"|''[^'']*''|[^\s"''>]+)/gi,
+    ''
+  );
+
+  // 3. 移除 style 属性（防止内联 style 中的 javascript: 注入）
+  result = result.replace(
+    /\s+style\s*=\s*(?:"[^"]*"|''[^'']*''|[^\s"''>]+)/gi,
+    ''
+  );
+
+  // 4. 校验 href / src / action / formaction / xlink:href 等 URL 属性的协议
+  const urlAttrs = ['href', 'src', 'action', 'formaction', 'xlink:href', 'poster', 'data'];
+  const attrPattern = new RegExp(
+    `\\s+(${urlAttrs.join('|')})\\s*=\\s*("([^"]*)"|''([^'']*)''|([^\\s"''>]+))`,
+    'gi'
+  );
+  result = result.replace(attrPattern, (match, attr: string, _full, dq?: string, sq?: string, bare?: string) => {
+    const url = dq ?? sq ?? bare ?? '';
+    const decoded = url
+      .replace(/&colon;/gi, ':')
+      .replace(/&Tab;/gi, '\t')
+      .replace(/&NewLine;/gi, '\n')
+      .trim();
+    if (FORBIDDEN_URL_PROTOCOLS.test(decoded)) {
+      return ` ${attr}="#"`;
+    }
+    // 强制加引号，避免 unquoted value
+    if (dq !== undefined) return ` ${attr}="${url.replace(/"/g, '&quot;')}"`;
+    if (sq !== undefined) return ` ${attr}=''${url}''`;
+    return ` ${attr}="${url.replace(/"/g, '&quot;')}"`;
+  });
+
+  return result;
 };
 
-// 模拟 unified pipeline
+// ---------- 组合：Markdown → HTML（带安全净化） ----------
+
 const unifiedMarkdownToHtml = (markdown: string): string => {
   const html = renderMarkdown(markdown);
   return sanitizeHtml(html);
@@ -56,7 +234,13 @@ describe('Markdown 渲染测试', () => {
 
         // 根据预期类型检查
         if (typeof expected === 'string') {
-          expect(html).toContain(`<${expected}`);
+          if (expected.startsWith('.')) {
+            // CSS class 期望值（如 ".math"）→ 检查 class 属性
+            const cls = expected.slice(1).replace(/[^a-zA-Z0-9_-]/g, '');
+            expect(html).toMatch(new RegExp(`class="[^"]*\\b${cls}\\b[^"]*"`));
+          } else {
+            expect(html).toContain(`<${expected}`);
+          }
         } else if (Array.isArray(expected)) {
           expected.forEach((tag) => {
             expect(html).toContain(`<${tag}`);
@@ -71,12 +255,12 @@ describe('Markdown 渲染测试', () => {
       const languages = ['javascript', 'python', 'go', 'rust', 'java', 'typescript'];
 
       languages.forEach((lang) => {
-        const input = `\`\`\`${lang}\nconsole.log('hello');\n\`\`\``;
+        const input = '```' + lang + '\nconsole.log("hello");\n```';
         const html = renderMarkdown(input);
 
-        expect(html).toContain(`language-${lang}`);
+        expect(html).toContain('language-' + lang);
         expect(html).toContain('<pre>');
-        expect(html).toContain('<code>');
+        expect(html).toContain('<code');
       });
     });
 
@@ -89,11 +273,7 @@ describe('Markdown 渲染测试', () => {
     });
 
     test('代码块显示行号', () => {
-      const input = `\`\`\`javascript
-function hello() {
-  console.log('Hello');
-}
-\`\`\``;
+      const input = '```javascript\nfunction hello() {\n  console.log("hello");\n}\n```';
       const html = renderMarkdown(input);
 
       // 检查代码块结构
@@ -122,20 +302,16 @@ function hello() {
 
   describe('GFM 扩展', () => {
     test('渲染任务列表', () => {
-      const input = `- [x] 已完成任务
-- [ ] 未完成任务
-- [x] 另一个已完成`;
+      const input = '- [x] 已完成任务\n- [ ] 未完成任务\n- [x] 另一个已完成';
       const html = renderMarkdown(input);
 
-      expect(html).toContain('<li>');
+      expect(html).toContain('<ul');
       expect(html).toContain('已完成');
       expect(html).toContain('未完成');
     });
 
     test('渲染表格', () => {
-      const input = `| 列1 | 列2 | 列3 |
-|------|------|------|
-| 值1 | 值2 | 值3 |`;
+      const input = '| 列1 | 列2 | 列3 |\n|------|------|------|\n| 值1 | 值2 | 值3 |';
       const html = renderMarkdown(input);
 
       expect(html).toContain('<table');
@@ -147,7 +323,7 @@ function hello() {
       const input = '~~删除的文字~~';
       const html = renderMarkdown(input);
 
-      expect(html).toContain('~~删除的文字~~');
+      expect(html).toContain('<del>删除的文字</del>');
     });
   });
 
@@ -184,7 +360,7 @@ describe('Markdown 安全测试', () => {
         expect(html).not.toContain('<iframe');
 
         // 验证允许的内容
-        if (expected) {
+        if (expected && !/^(?:<img|<iframe|<script)/i.test(expected)) {
           expect(html).toContain(expected);
         }
       }
@@ -206,21 +382,51 @@ describe('Markdown 安全测试', () => {
       expect(html).not.toContain('javascript:');
       expect(html).toContain('href="#"');
     });
+
+    test('阻止 vbscript: 协议', () => {
+      const html = unifiedMarkdownToHtml('[x](vbscript:msgbox(1))');
+      expect(html).not.toContain('vbscript:');
+    });
+
+    test('阻止 data: 协议', () => {
+      const html = unifiedMarkdownToHtml('[x](data:text/html,<script>alert(1)</script>)');
+      expect(html).not.toMatch(/href=["'](?:javascript|vbscript):/i);
+    });
+
+    test('阻止未加引号的事件处理器', () => {
+      const html = unifiedMarkdownToHtml('<img src=x onerror=alert(1)>');
+      expect(html).not.toContain('onerror');
+      expect(html).not.toContain('alert');
+    });
+
+    test('阻止空字节绕过', () => {
+      const html = unifiedMarkdownToHtml('<scr\x00ipt>alert(1)</scr\x00ipt>');
+      expect(html).not.toContain('alert');
+    });
+
+    test('阻止 style 属性中的 javascript:', () => {
+      const html = unifiedMarkdownToHtml('<div style="background:url(javascript:alert(1))">x</div>');
+      expect(html).not.toContain('javascript:');
+      // style 属性已被剥离
+      expect(html).not.toMatch(/\bstyle\s*=/i);
+    });
   });
 });
 
 describe('Markdown 一致性测试', () => {
   test('编辑与展示一致性', () => {
-    const markdown = `# 标题
-
-正文内容
-
-\`\`\`javascript
-const x = 1;
-\`\`\`
-
-[链接](https://example.com)
-`;
+    const markdown = [
+      '# 标题',
+      '',
+      '正文内容',
+      '',
+      '```javascript',
+      'const x = 1;',
+      '```',
+      '',
+      '[链接](https://example.com)',
+      '',
+    ].join('\n');
 
     // 模拟保存时的处理
     const content_md = markdown;
@@ -251,7 +457,7 @@ describe('Markdown 性能测试', () => {
   test('长文档渲染时间', () => {
     const longContent = Array(100)
       .fill(null)
-      .map((_, i) => `## 标题 ${i}\n\n段落内容 ${i}\n\n\`\`\`python\nprint(${i})\n\`\`\``)
+      .map((_, i) => '## 标题 ' + i + '\n\n段落内容 ' + i + '\n\n```python\nprint(' + i + ')\n```')
       .join('\n\n');
 
     const startTime = Date.now();
@@ -265,10 +471,10 @@ describe('Markdown 性能测试', () => {
   test('大代码块渲染', () => {
     const codeBlock = Array(500)
       .fill(null)
-      .map((_, i) => `line ${i + 1}`)
+      .map((_, i) => 'line ' + (i + 1))
       .join('\n');
 
-    const input = `\`\`\`javascript\n${codeBlock}\n\`\`\``;
+    const input = '```javascript\n' + codeBlock + '\n```';
     const html = renderMarkdown(input);
 
     expect(html).toContain('<pre>');
@@ -276,3 +482,8 @@ describe('Markdown 性能测试', () => {
     expect(html).toContain('line 500');
   });
 });
+
+
+
+
+

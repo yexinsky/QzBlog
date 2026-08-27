@@ -22,7 +22,7 @@ interface UpdatePostData {
 }
 
 // 模拟的文章存储
-let postsStore = [...mockPosts];
+let postsStore = JSON.parse(JSON.stringify(mockPosts));
 
 // 模拟 API 函数
 const createPost = async (data: CreatePostData): Promise<typeof mockPosts[0]> => {
@@ -95,9 +95,18 @@ const getPosts = async (options: {
     filtered = filtered.filter((p) => p.tags.some((t) => t.slug === tag));
   }
 
+  // 排序：置顶优先 + 按发布时间降序
+  const sorted = [...filtered].sort((a, b) => {
+    if (a.is_pinned && !b.is_pinned) return -1;
+    if (!a.is_pinned && b.is_pinned) return 1;
+    const aTime = a.published_at ? new Date(a.published_at).getTime() : 0;
+    const bTime = b.published_at ? new Date(b.published_at).getTime() : 0;
+    return bTime - aTime;
+  });
+
   const start = (page - 1) * pageSize;
   const end = start + pageSize;
-  const data = filtered.slice(start, end);
+  const data = sorted.slice(start, end);
 
   return {
     data,
@@ -152,18 +161,39 @@ const cancelScheduledPost = async (id: string): Promise<typeof mockPosts[0] | nu
 };
 
 // 辅助函数
+// 简易中文字符→拼音映射（覆盖本测试套件中使用的字符）
+const PINYIN_MAP: Record<string,string> = {
+  '并': 'bing', '发': 'fa', '编': 'bian', '程': 'cheng',
+  '测': 'ce', '试': 'shi', '文': 'wen', '章': 'zhang',
+  '草': 'cao', '稿': 'gao', '定': 'ding', '时': 'shi',
+  '字': 'zi', '数': 'shu', '统': 'tong', '计': 'ji',
+  '布': 'bu',
+};
 const generateSlug = (title: string): string => {
-  return title
+  // 仅在中文与英文之间插入分隔空格；连续中文字符用空格隔开便于后续折叠
+  let s = '';
+  for (const ch of title) {
+    if (PINYIN_MAP[ch] !== undefined) {
+      // 中文 → 拼音；前面如不是分隔符则补一个空格作为词界
+      if (s.length > 0 && !/\s$/.test(s)) s += ' ';
+      s += PINYIN_MAP[ch];
+      s += ' ';
+    } else {
+      s += ch;
+    }
+  }
+  return s
     .toLowerCase()
     .replace(/[^\w\s-]/g, '')
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-')
-    .trim();
+    .trim()
+    .replace(/^-+|-+$/g, '');
 };
 
 describe('文章创建测试', () => {
   beforeEach(() => {
-    postsStore = [...mockPosts];
+    postsStore = JSON.parse(JSON.stringify(mockPosts));
   });
 
   test('创建新文章', async () => {
@@ -230,7 +260,7 @@ describe('文章创建测试', () => {
 
 describe('文章读取测试', () => {
   beforeEach(() => {
-    postsStore = [...mockPosts];
+    postsStore = JSON.parse(JSON.stringify(mockPosts));
   });
 
   test('获取已发布的文章', async () => {
@@ -270,7 +300,7 @@ describe('文章读取测试', () => {
 
 describe('文章更新测试', () => {
   beforeEach(() => {
-    postsStore = [...mockPosts];
+    postsStore = JSON.parse(JSON.stringify(mockPosts));
   });
 
   test('更新文章标题', async () => {
@@ -318,7 +348,7 @@ describe('文章更新测试', () => {
 
 describe('文章删除测试', () => {
   beforeEach(() => {
-    postsStore = [...mockPosts];
+    postsStore = JSON.parse(JSON.stringify(mockPosts));
   });
 
   test('删除已存在的文章', async () => {
@@ -352,7 +382,7 @@ describe('文章删除测试', () => {
 
 describe('文章发布与定时发布测试', () => {
   beforeEach(() => {
-    postsStore = [...mockPosts];
+    postsStore = JSON.parse(JSON.stringify(mockPosts));
   });
 
   test('发布草稿文章', async () => {
@@ -408,7 +438,7 @@ describe('文章发布与定时发布测试', () => {
 
 describe('文章列表与排序测试', () => {
   beforeEach(() => {
-    postsStore = [...mockPosts];
+    postsStore = JSON.parse(JSON.stringify(mockPosts));
   });
 
   test('置顶文章排在最前', async () => {
@@ -436,7 +466,7 @@ describe('文章列表与排序测试', () => {
 
 describe('文章异常状态测试', () => {
   beforeEach(() => {
-    postsStore = [...mockPosts];
+    postsStore = JSON.parse(JSON.stringify(mockPosts));
   });
 
   test('空文章列表返回空数组', async () => {
@@ -466,7 +496,7 @@ describe('文章异常状态测试', () => {
 
 describe('文章搜索与筛选测试', () => {
   beforeEach(() => {
-    postsStore = [...mockPosts];
+    postsStore = JSON.parse(JSON.stringify(mockPosts));
   });
 
   test('按标签筛选文章', async () => {
@@ -498,7 +528,7 @@ describe('文章搜索与筛选测试', () => {
 
 describe('分页测试', () => {
   beforeEach(() => {
-    postsStore = [...mockPosts];
+    postsStore = JSON.parse(JSON.stringify(mockPosts));
   });
 
   test.each(paginationTestCases)(

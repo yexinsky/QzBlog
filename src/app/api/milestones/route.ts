@@ -1,10 +1,11 @@
 import { z } from 'zod';
+import { randomUUID } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { db, schema } from '@/lib/db';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { eq, desc } from 'drizzle-orm';
-import { withRatelimit, globalRatelimit } from '@/lib/ratelimit';
+import { withRatelimit, globalRatelimit } from '@/lib/rate-limit';
 
 // Validation schemas
 const createMilestoneSchema = z.object({
@@ -62,19 +63,21 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user || session.user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (session.user.role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const body = await request.json();
     const validatedData = createMilestoneSchema.parse(body);
 
-    const newMilestone = await db
+    const milestoneId = randomUUID();
+    await db
       .insert(schema.milestones)
       .values({
+        id: milestoneId,
         title: validatedData.title,
         description: validatedData.description,
         eventDate: new Date(validatedData.eventDate),
@@ -82,10 +85,10 @@ export async function POST(request: NextRequest) {
         icon: validatedData.icon,
         sortOrder: validatedData.sortOrder || 0,
         isPublic: validatedData.isPublic !== false,
-      })
-      .returning();
+      });
+    const newMilestone = await db.query.milestones.findFirst({ where: eq(schema.milestones.id, milestoneId) });
 
-    return NextResponse.json(newMilestone[0], { status: 201 });
+    return NextResponse.json(newMilestone, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -101,3 +104,5 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+

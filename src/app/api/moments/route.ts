@@ -1,10 +1,11 @@
 import { z } from 'zod';
+import { randomUUID } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { db, schema } from '@/lib/db';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { eq, desc, and, sql } from 'drizzle-orm';
-import { withRatelimit, momentRatelimit } from '@/lib/ratelimit';
+import { withRatelimit, momentRatelimit } from '@/lib/rate-limit';
 
 // Validation schemas
 const createMomentSchema = z.object({
@@ -27,8 +28,17 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '20');
+    const pagination = z.object({
+      page: z.coerce.number().int().min(1).max(100_000).default(1),
+      limit: z.coerce.number().int().min(1).max(100).default(20),
+    }).safeParse({
+      page: searchParams.get('page') ?? undefined,
+      limit: searchParams.get('limit') ?? undefined,
+    });
+    if (!pagination.success) {
+      return NextResponse.json({ error: 'Invalid pagination', code: 'VALIDATION_ERROR' }, { status: 400 });
+    }
+    const { page, limit } = pagination.data;
 
     const offset = (page - 1) * limit;
 
@@ -103,16 +113,18 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = createMomentSchema.parse(body);
 
-    const newMoment = await db
+    const momentId = randomUUID();
+    await db
       .insert(schema.moments)
       .values({
+        id: momentId,
         content: validatedData.content,
         imageUrl: validatedData.imageUrl,
         publishedAt: new Date(),
-      })
-      .returning();
+      });
+    const newMoment = await db.query.moments.findFirst({ where: eq(schema.moments.id, momentId) });
 
-    return NextResponse.json(newMoment[0], { status: 201 });
+    return NextResponse.json(newMoment, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -128,3 +140,5 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+

@@ -1,4 +1,4 @@
-# 测试模拟数据
+// 测试模拟数据
 
 // 文章数据
 export const mockPosts = [
@@ -46,7 +46,7 @@ func main() {
     like_count: 128,
     view_count: 3250,
     scheduled_at: null,
-    published_at: '2026-03-15T10:00:00Z',
+    published_at: '2026-05-20T10:00:00Z',
     cancel_scheduled: false,
     created_at: '2026-03-14T15:30:00Z',
     updated_at: '2026-03-15T10:00:00Z',
@@ -112,10 +112,10 @@ useEffect(() => {
     author_id: 'author-123',
     title: '定时发布的测试文章',
     slug: 'scheduled-test-post',
-    content_md: '# 定时发布测试
+    content_md: `# 定时发布测试
 
 这是一篇定时发布的文章。
-',
+`,
     content_html: '<h1>定时发布测试</h1>',
     summary: '测试定时发布功能',
     cover_image: null,
@@ -136,10 +136,10 @@ useEffect(() => {
     author_id: 'author-123',
     title: '草稿文章',
     slug: 'draft-post',
-    content_md: '# 草稿文章
+    content_md: `# 草稿文章
 
 这是一个草稿。
-',
+`,
     content_html: '<h1>草稿文章</h1>',
     summary: '草稿',
     cover_image: null,
@@ -407,6 +407,7 @@ export const paginationTestCases = [
     page: 2,
     pageSize: 10,
     total: 25,
+    expectedTotalPages: 3,
     expectedHasNext: true,
     expectedHasPrev: true,
   },
@@ -414,6 +415,7 @@ export const paginationTestCases = [
     page: 3,
     pageSize: 10,
     total: 25,
+    expectedTotalPages: 3,
     expectedHasNext: false,
     expectedHasPrev: true,
   },

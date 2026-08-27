@@ -4,7 +4,7 @@ import { db, schema } from '@/lib/db';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { eq, desc } from 'drizzle-orm';
-import { withRatelimit, momentRatelimit } from '@/lib/ratelimit';
+import { withRatelimit, momentRatelimit } from '@/lib/rate-limit';
 
 const updateMomentSchema = z.object({
   content: z.string().min(1).max(500).optional(),
@@ -14,39 +14,40 @@ const updateMomentSchema = z.object({
 // 更新动态
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const session = await getServerSession(authOptions);
 
-    if (!session?.user || session.user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (session.user.role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const { id } = params;
+
     const body = await request.json();
     const validatedData = updateMomentSchema.parse(body);
 
-    const updatedMoment = await db
+    await db
       .update(schema.moments)
       .set({
         ...validatedData,
         updatedAt: new Date(),
       })
-      .where(eq(schema.moments.id, id))
-      .returning();
+      .where(eq(schema.moments.id, id));
+    const updatedMoment = await db.query.moments.findFirst({ where: eq(schema.moments.id, id) });
 
-    if (updatedMoment.length === 0) {
+    if (!updatedMoment) {
       return NextResponse.json(
         { error: 'Moment not found' },
         { status: 404 }
       );
     }
 
-    return NextResponse.json(updatedMoment[0]);
+    return NextResponse.json(updatedMoment);
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -66,31 +67,28 @@ export async function PUT(
 // 删除动态
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const session = await getServerSession(authOptions);
 
-    if (!session?.user || session.user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (session.user.role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const { id } = params;
 
-    const deleted = await db
+
+    const deleted = await db.query.moments.findFirst({ where: eq(schema.moments.id, id) });
+    if (!deleted) {
+      return NextResponse.json({ error: 'Moment not found' }, { status: 404 });
+    }
+    await db
       .delete(schema.moments)
-      .where(eq(schema.moments.id, id))
-      .returning();
-
-    if (deleted.length === 0) {
-      return NextResponse.json(
-        { error: 'Moment not found' },
-        { status: 404 }
-      );
-    }
+      .where(eq(schema.moments.id, id));
 
     return NextResponse.json({ success: true });
   } catch (error) {

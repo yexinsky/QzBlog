@@ -17,19 +17,20 @@ const updateSeriesSchema = z.object({
 // 更新系列
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const session = await getServerSession(authOptions);
 
-    if (!session?.user || session.user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (session.user.role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const { id } = params;
+
     const body = await request.json();
     const validatedData = updateSeriesSchema.parse(body);
 
@@ -58,20 +59,20 @@ export async function PUT(
       updateData.sortOrder = validatedData.sortOrder;
     }
 
-    const updatedSeries = await db
+    await db
       .update(schema.series)
       .set(updateData)
-      .where(eq(schema.series.id, id))
-      .returning();
+      .where(eq(schema.series.id, id));
+    const updatedSeries = await db.query.series.findFirst({ where: eq(schema.series.id, id) });
 
-    if (updatedSeries.length === 0) {
+    if (!updatedSeries) {
       return NextResponse.json(
         { error: 'Series not found' },
         { status: 404 }
       );
     }
 
-    return NextResponse.json(updatedSeries[0]);
+    return NextResponse.json(updatedSeries);
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -91,31 +92,28 @@ export async function PUT(
 // 删除系列
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const session = await getServerSession(authOptions);
 
-    if (!session?.user || session.user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (session.user.role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const { id } = params;
 
-    const deleted = await db
+
+    const deleted = await db.query.series.findFirst({ where: eq(schema.series.id, id) });
+    if (!deleted) {
+      return NextResponse.json({ error: 'Series not found' }, { status: 404 });
+    }
+    await db
       .delete(schema.series)
-      .where(eq(schema.series.id, id))
-      .returning();
-
-    if (deleted.length === 0) {
-      return NextResponse.json(
-        { error: 'Series not found' },
-        { status: 404 }
-      );
-    }
+      .where(eq(schema.series.id, id));
 
     return NextResponse.json({ success: true });
   } catch (error) {

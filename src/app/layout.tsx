@@ -21,6 +21,13 @@ export const metadata: Metadata = {
   },
 }
 
+// Inline bootstrap script: runs synchronously in <head> before paint, reads the
+// persisted theme preference and applies the matching class to <html>. This lets
+// the CSS variables defined in globals.css resolve to the correct values on the
+// very first frame, so there is no light-to-dark (or dark-to-light) flash. It also
+// prevents hydration mismatch because <html>'s class attribute is suppressed.
+const themeBootstrap = `(function(){try{var k='qzhou-blog-theme';var s=localStorage.getItem(k);var t=(s==='light'||s==='dark')?s:'light';var r=document.documentElement;r.classList.remove('light','dark');r.classList.add(t);r.style.colorScheme=t;}catch(e){}})();`
+
 export default function RootLayout({
   children,
 }: {
@@ -28,6 +35,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="zh-CN" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
+      </head>
       <body className="min-h-screen flex flex-col">
         <ThemeProvider>
           <ToastProvider>

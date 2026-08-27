@@ -24,6 +24,9 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # local env files
+.env
+.env.*
+!.env.example
 .env*.local
 
 # vercel
@@ -32,3 +35,17 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# security-sensitive/local runtime artifacts
+*.log
+logs/
+*.dump
+*.sql
+*.sqlite
+*.sqlite3
+*.bak
+*.backup
+*.tgz
+*.zip
+playwright-report/
+test-results/

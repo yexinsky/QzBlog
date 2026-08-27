@@ -1,267 +1,187 @@
-import { z } from 'zod';
+import { randomUUID } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { db, schema } from '@/lib/db';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { eq, and, desc, sql, like, or } from 'drizzle-orm';
-import { renderMarkdown, renderCommentMarkdown, countWords, generateSummary, generateSlug } from '@/lib/markdown';
-import { withRatelimit, globalRatelimit } from '@/lib/ratelimit';
+import { and, desc, eq, inArray, like, lte, or, sql } from 'drizzle-orm';
+import { z } from 'zod';
 
-// Validation schemas
+import { authOptions } from '@/lib/auth';
+import { db, schema } from '@/lib/db';
+import { countWords, generateSlug, generateSummary, renderMarkdown } from '@/lib/markdown';
+import { globalRatelimit, withRatelimit } from '@/lib/rate-limit';
+
 const createPostSchema = z.object({
-  title: z.string().min(1).max(255),
+  title: z.string().trim().min(1).max(255),
   contentMd: z.string().min(1),
   summary: z.string().max(500).optional(),
   coverImage: z.string().url().optional(),
-  status: z.enum(['draft', 'published', 'scheduled']).optional(),
+  status: z.enum(['draft', 'published', 'scheduled']).default('draft'),
   scheduledAt: z.string().datetime().optional(),
-  tagIds: z.array(z.string().uuid()).optional(),
+  tagIds: z.array(z.string().uuid()).max(50).default([]),
   seriesId: z.string().uuid().optional(),
-  seriesOrder: z.number().int().optional(),
+  seriesOrder: z.number().int().min(0).max(1_000_000).default(0),
+}).superRefine((data, ctx) => {
+  if (data.status === 'scheduled' && !data.scheduledAt) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['scheduledAt'], message: 'scheduledAt is required for scheduled posts' });
+  }
 });
 
-const updatePostSchema = createPostSchema.partial();
+const querySchema = z.object({
+  page: z.coerce.number().int().min(1).max(100_000).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(10),
+  status: z.enum(['draft', 'published', 'scheduled']).optional(),
+  tagId: z.string().uuid().optional(),
+  seriesId: z.string().uuid().optional(),
+  keyword: z.string().trim().max(100).optional(),
+});
 
-// 获取文章列表
+async function validateRelations(tagIds: string[], seriesId?: string) {
+  const uniqueTagIds = [...new Set(tagIds)];
+  if (uniqueTagIds.length !== tagIds.length) {
+    throw new RelationValidationError('Duplicate tag IDs are not allowed');
+  }
+
+  if (uniqueTagIds.length > 0) {
+    const existingTags = await db.select({ id: schema.tags.id }).from(schema.tags).where(inArray(schema.tags.id, uniqueTagIds));
+    if (existingTags.length !== uniqueTagIds.length) {
+      throw new RelationValidationError('One or more tags do not exist');
+    }
+  }
+
+  if (seriesId) {
+    const existingSeries = await db.select({ id: schema.series.id }).from(schema.series).where(eq(schema.series.id, seriesId)).limit(1);
+    if (existingSeries.length === 0) {
+      throw new RelationValidationError('Series does not exist');
+    }
+  }
+
+  return uniqueTagIds;
+}
+
+class RelationValidationError extends Error {}
+
 export async function GET(request: NextRequest) {
   try {
-    // 检查全局限流
     const ratelimitCheck = await withRatelimit(globalRatelimit)(request);
-    if (!ratelimitCheck.success) {
-      return ratelimitCheck.response!;
+    if (!ratelimitCheck.success) return ratelimitCheck.response!;
+
+    const session = await getServerSession(authOptions);
+    const parsed = querySchema.safeParse(Object.fromEntries(new URL(request.url).searchParams));
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Invalid query parameters', details: parsed.error.errors }, { status: 400 });
     }
 
-    const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '10');
-    const status = searchParams.get('status');
-    const tagId = searchParams.get('tagId');
-    const seriesId = searchParams.get('seriesId');
-    const keyword = searchParams.get('keyword');
+    const { page, limit, status, tagId, seriesId, keyword } = parsed.data;
+    const isAdmin = session?.user?.role === 'admin';
+    const userId = session?.user?.id;
+    const now = new Date();
+    const whereConditions = [];
 
-    const offset = (page - 1) * limit;
-
-    // 构建查询条件
-    let whereConditions: any[] = [];
-
-    // 状态过滤（只显示已发布的给公众）
-    if (status === 'published') {
-      whereConditions.push(eq(schema.posts.status, 'published'));
-    } else if (status) {
-      whereConditions.push(eq(schema.posts.status, status));
+    if (!userId) {
+      whereConditions.push(eq(schema.posts.status, 'published'), lte(schema.posts.publishedAt, now));
+    } else if (isAdmin) {
+      if (status) whereConditions.push(eq(schema.posts.status, status));
+      else whereConditions.push(or(eq(schema.posts.status, 'draft'), eq(schema.posts.status, 'scheduled'), and(eq(schema.posts.status, 'published'), lte(schema.posts.publishedAt, now)))!);
     } else {
-      // 默认只显示已发布的
-      whereConditions.push(eq(schema.posts.status, 'published'));
+      whereConditions.push(eq(schema.posts.authorId, userId));
+      if (status) whereConditions.push(eq(schema.posts.status, status));
     }
 
-    // 标签过滤
     if (tagId) {
-      whereConditions.push(
-        sql`${schema.posts.id} IN (
-          SELECT ${schema.postTags.postId}
-          FROM ${schema.postTags}
-          WHERE ${schema.postTags.tagId} = ${tagId}
-        )`
-      );
+      whereConditions.push(sql`${schema.posts.id} IN (SELECT ${schema.postTags.postId} FROM ${schema.postTags} WHERE ${schema.postTags.tagId} = ${tagId})`);
     }
-
-    // 系列过滤
     if (seriesId) {
-      whereConditions.push(
-        sql`${schema.posts.id} IN (
-          SELECT ${schema.seriesPosts.postId}
-          FROM ${schema.seriesPosts}
-          WHERE ${schema.seriesPosts.seriesId} = ${seriesId}
-        )`
-      );
+      whereConditions.push(sql`${schema.posts.id} IN (SELECT ${schema.seriesPosts.postId} FROM ${schema.seriesPosts} WHERE ${schema.seriesPosts.seriesId} = ${seriesId})`);
     }
-
-    // 关键词搜索（标题和摘要）
     if (keyword) {
-      whereConditions.push(
-        or(
-          like(schema.posts.title, `%${keyword}%`),
-          like(schema.posts.summary, `%${keyword}%`)
-        )
-      );
+      whereConditions.push(or(like(schema.posts.title, `%${keyword}%`), like(schema.posts.summary, `%${keyword}%`))!);
     }
 
-    const whereClause = whereConditions.length > 0 ? and(...whereConditions) : undefined;
-
-    // 查询文章列表
+    const whereClause = and(...whereConditions);
     const posts = await db.query.posts.findMany({
       where: whereClause,
       with: {
-        author: {
-          columns: {
-            id: true,
-            username: true,
-            avatarUrl: true,
-          },
-        },
-        tags: {
-          with: {
-            tag: true,
-          },
-        },
-        seriesPost: {
-          with: {
-            series: true,
-          },
-        },
+        author: { columns: { id: true, username: true, avatarUrl: true } },
+        tags: { with: { tag: true } },
+        seriesPost: { with: { series: true } },
       },
-      orderBy: [
-        desc(schema.posts.isPinned),
-        desc(schema.posts.publishedAt),
-      ],
+      orderBy: [desc(schema.posts.isPinned), desc(schema.posts.publishedAt)],
       limit,
-      offset,
+      offset: (page - 1) * limit,
     });
 
-    // 格式化返回数据
-    const formattedPosts = posts.map((post) => ({
-      id: post.id,
-      title: post.title,
-      slug: post.slug,
-      summary: post.summary,
-      coverImage: post.coverImage,
-      status: post.status,
-      isPinned: post.isPinned,
-      wordCount: post.wordCount,
-      likeCount: post.likeCount,
-      viewCount: post.viewCount,
-      publishedAt: post.publishedAt,
-      createdAt: post.createdAt,
-      author: {
-        id: post.author?.id,
-        username: post.author?.username,
-        avatarUrl: post.author?.avatarUrl,
-      },
-      tags: post.tags?.map((pt) => pt.tag) || [],
-      series: post.seriesPost?.[0]?.series || null,
-    }));
-
-    // 获取总数
-    const countResult = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(schema.posts)
-      .where(whereClause);
-
-    const total = countResult[0]?.count || 0;
+    const countResult = await db.select({ count: sql<number>`count(*)` }).from(schema.posts).where(whereClause);
+    const total = Number(countResult[0]?.count ?? 0);
 
     return NextResponse.json({
-      posts: formattedPosts,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
+      posts: posts.map((post) => ({
+        id: post.id,
+        title: post.title,
+        slug: post.slug,
+        summary: post.summary,
+        coverImage: post.coverImage,
+        status: post.status,
+        isPinned: post.isPinned,
+        wordCount: post.wordCount,
+        likeCount: post.likeCount,
+        viewCount: post.viewCount,
+        scheduledAt: userId ? post.scheduledAt : undefined,
+        publishedAt: post.publishedAt,
+        createdAt: post.createdAt,
+        author: { id: post.author?.id, username: post.author?.username, avatarUrl: post.author?.avatarUrl },
+        tags: post.tags?.map((pt) => pt.tag) || [],
+        series: post.seriesPost?.[0]?.series || null,
+      })),
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     });
   } catch (error) {
     console.error('Error fetching posts:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch posts' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to fetch posts' }, { status: 500 });
   }
 }
 
-// 创建新文章
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
+    if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    // 只有已登录的管理员才能创建文章
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    const validatedData = createPostSchema.parse(await request.json());
+    const tagIds = await validateRelations(validatedData.tagIds, validatedData.seriesId);
+    let slug = generateSlug(validatedData.title) || randomUUID();
+    const existingPost = await db.query.posts.findFirst({ where: eq(schema.posts.slug, slug), columns: { id: true } });
+    if (existingPost) slug = `${slug}-${randomUUID().slice(0, 8)}`;
 
-    const body = await request.json();
-    const validatedData = createPostSchema.parse(body);
-
-    // 生成slug
-    let slug = generateSlug(validatedData.title);
-
-    // 检查slug唯一性
-    const existingPost = await db.query.posts.findFirst({
-      where: eq(schema.posts.slug, slug),
-    });
-
-    if (existingPost) {
-      slug = `${slug}-${Date.now().toString(36)}`;
-    }
-
-    // 渲染HTML内容
     const contentHtml = await renderMarkdown(validatedData.contentMd);
+    const postId = randomUUID();
+    const now = new Date();
+    const publishedAt = validatedData.status === 'published' ? now : null;
+    const scheduledAt = validatedData.scheduledAt ? new Date(validatedData.scheduledAt) : null;
 
-    // 计算字数和摘要
-    const wordCount = countWords(validatedData.contentMd);
-    const summary = validatedData.summary || generateSummary(validatedData.contentMd);
-
-    // 处理发布时间
-    let publishedAt = null;
-    let status = validatedData.status || 'draft';
-
-    if (status === 'published') {
-      publishedAt = new Date();
-    }
-
-    // 创建文章
-    const newPost = await db
-      .insert(schema.posts)
-      .values({
+    await db.transaction(async (tx) => {
+      await tx.insert(schema.posts).values({
+        id: postId,
+        authorId: session.user.id,
         title: validatedData.title,
         slug,
         contentMd: validatedData.contentMd,
         contentHtml,
-        summary,
+        summary: validatedData.summary ?? generateSummary(validatedData.contentMd),
         coverImage: validatedData.coverImage,
-        status,
-        scheduledAt: validatedData.scheduledAt ? new Date(validatedData.scheduledAt) : null,
+        status: validatedData.status,
+        scheduledAt,
         publishedAt,
-        authorId: session.user.id,
-        wordCount,
-      })
-      .returning();
-
-    const postId = newPost[0].id;
-
-    // 添加标签关联
-    if (validatedData.tagIds && validatedData.tagIds.length > 0) {
-      await db.insert(schema.postTags).values(
-        validatedData.tagIds.map((tagId) => ({
-          postId,
-          tagId,
-        }))
-      );
-    }
-
-    // 添加系列关联
-    if (validatedData.seriesId) {
-      await db.insert(schema.seriesPosts).values({
-        seriesId: validatedData.seriesId,
-        postId,
-        sortOrder: validatedData.seriesOrder || 0,
+        wordCount: countWords(validatedData.contentMd),
       });
-    }
+      if (tagIds.length > 0) await tx.insert(schema.postTags).values(tagIds.map((tagId) => ({ postId, tagId })));
+      if (validatedData.seriesId) await tx.insert(schema.seriesPosts).values({ id: randomUUID(), seriesId: validatedData.seriesId, postId, sortOrder: validatedData.seriesOrder });
+    });
 
-    return NextResponse.json(newPost[0], { status: 201 });
+    const newPost = await db.query.posts.findFirst({ where: eq(schema.posts.id, postId) });
+    return NextResponse.json(newPost, { status: 201 });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Validation error', details: error.errors },
-        { status: 400 }
-      );
+    if (error instanceof z.ZodError || error instanceof RelationValidationError) {
+      return NextResponse.json({ error: error.message, details: error instanceof z.ZodError ? error.errors : undefined }, { status: 400 });
     }
-
     console.error('Error creating post:', error);
-    return NextResponse.json(
-      { error: 'Failed to create post' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to create post' }, { status: 500 });
   }
 }

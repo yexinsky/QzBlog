@@ -1,19 +1,21 @@
 import { z } from 'zod';
+import { randomUUID } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { db, schema } from '@/lib/db';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { eq, desc } from 'drizzle-orm';
-import { withRatelimit, globalRatelimit } from '@/lib/ratelimit';
+import { withRatelimit, globalRatelimit } from '@/lib/rate-limit';
+import { safeHttpUrl } from '@/lib/validation';
 
 // Validation schemas
 const createProjectSchema = z.object({
   name: z.string().min(1).max(200),
   description: z.string().optional(),
   techStack: z.array(z.string()),
-  coverImage: z.string().url().optional(),
-  githubUrl: z.string().url().optional(),
-  demoUrl: z.string().url().optional(),
+  coverImage: safeHttpUrl.optional(),
+  githubUrl: safeHttpUrl.optional(),
+  demoUrl: safeHttpUrl.optional(),
   starCount: z.number().int().optional(),
   isFeatured: z.boolean().optional(),
   sortOrder: z.number().int().optional(),
@@ -53,19 +55,21 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user || session.user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (session.user.role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const body = await request.json();
     const validatedData = createProjectSchema.parse(body);
 
-    const newProject = await db
+    const projectId = randomUUID();
+    await db
       .insert(schema.projects)
       .values({
+        id: projectId,
         name: validatedData.name,
         description: validatedData.description,
         techStack: validatedData.techStack,
@@ -75,10 +79,10 @@ export async function POST(request: NextRequest) {
         starCount: validatedData.starCount || 0,
         isFeatured: validatedData.isFeatured || false,
         sortOrder: validatedData.sortOrder || 0,
-      })
-      .returning();
+      });
+    const newProject = await db.query.projects.findFirst({ where: eq(schema.projects.id, projectId) });
 
-    return NextResponse.json(newProject[0], { status: 201 });
+    return NextResponse.json(newProject, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -94,3 +98,6 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+
+

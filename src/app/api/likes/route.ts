@@ -1,9 +1,9 @@
 import { z } from 'zod';
+import { randomUUID } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { db, schema } from '@/lib/db';
 import { eq, and, sql } from 'drizzle-orm';
-import { withRatelimit, commentRatelimit, globalRatelimit } from '@/lib/ratelimit';
-import { getClientIP } from '@/lib/rate-limit';
+import { withRatelimit, likeRatelimit, createAnonymousClientId } from '@/lib/rate-limit';
 
 // Validation schemas
 const likePostSchema = z.object({
@@ -15,47 +15,47 @@ const likeMomentSchema = z.object({
 });
 
 /**
- * 脱敏IP地址（保留前3段，末段置零）
- */
-function sanitizeIpAddress(ip: string): string {
-  // IPv4: 192.168.1.123 -> 192.168.1.0
-  // IPv6: 简化处理，只取前80bits
-  const parts = ip.split('.');
-
-  if (parts.length === 4) {
-    return `${parts[0]}.${parts[1]}.${parts[2]}.0`;
-  }
-
-  // IPv6处理
-  if (ip.includes(':')) {
-    const ipv6Parts = ip.split(':');
-    if (ipv6Parts.length >= 4) {
-      return `${ipv6Parts[0]}:${ipv6Parts[1]}:${ipv6Parts[2]}:${ipv6Parts[3]}::`;
-    }
-  }
-
-  return '0.0.0.0';
-}
-
-/**
  * 获取今天的日期（用于唯一约束）
  */
 function getToday(): string {
   return new Date().toISOString().split('T')[0];
 }
 
+function isDuplicateEntryError(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) {
+    return false;
+  }
+
+  const mysqlError = error as { code?: string; errno?: number };
+  return mysqlError.code === 'ER_DUP_ENTRY' || mysqlError.errno === 1062;
+}
+
+/**
+ * 将 Zod 校验错误折叠为统一的 400 响应格式。
+ */
+function zodErrorResponse(error: z.ZodError): NextResponse {
+  return NextResponse.json(
+    {
+      error: 'Validation error',
+      code: 'VALIDATION_ERROR',
+      details: error.errors,
+    },
+    { status: 400 }
+  );
+}
+
 // 点赞文章
 export async function POST(request: NextRequest) {
   try {
     // 检查限流
-    const ratelimitCheck = await withRatelimit(commentRatelimit)(request);
+    const ratelimitCheck = await withRatelimit(likeRatelimit)(request);
     if (!ratelimitCheck.success) {
       return ratelimitCheck.response!;
     }
 
     const body = await request.json();
     const validatedData = likePostSchema.parse(body);
-    const ipAddress = sanitizeIpAddress(getClientIP(request));
+    const ipAddress = createAnonymousClientId(request);
     const today = getToday();
 
     // 检查文章是否存在且已发布
@@ -73,51 +73,56 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 检查今天是否已经点赞（使用 INSERT ... ON CONFLICT DO NOTHING 语义）
-    // 先检查今天的点赞记录
+    // 先检查今天的点赞记录；数据库唯一索引负责兜底并发请求。
     const existingLike = await db.query.postLikes.findFirst({
       where: and(
         eq(schema.postLikes.postId, validatedData.postId),
-        eq(schema.postLikes.ipAddress, ipAddress)
+        eq(schema.postLikes.ipAddress, ipAddress),
+        eq(schema.postLikes.likeDate, today)
       ),
-      orderBy: (postLikes, { desc }) => [desc(postLikes.createdAt)],
     });
 
     if (existingLike) {
-      // 检查是否在今天
-      const likeDate = new Date(existingLike.createdAt).toISOString().split('T')[0];
-
-      if (likeDate === today) {
-        // 今天已经点过赞了
-        return NextResponse.json(
-          {
-            error: 'You have already liked this post today',
-            code: 'ALREADY_LIKED',
-          },
-          { status: 409 }
-        );
-      }
+      return NextResponse.json(
+        {
+          error: 'You have already liked this post today',
+          code: 'ALREADY_LIKED',
+        },
+        { status: 409 }
+      );
     }
 
-    // 创建点赞记录
-    await db.insert(schema.postLikes).values({
-      postId: validatedData.postId,
-      ipAddress,
+    await db.transaction(async (tx) => {
+      await tx.insert(schema.postLikes).values({
+        id: randomUUID(),
+        postId: validatedData.postId,
+        ipAddress,
+        likeDate: today,
+      });
+
+      await tx
+        .update(schema.posts)
+        .set({ likeCount: sql`${schema.posts.likeCount} + 1` })
+        .where(eq(schema.posts.id, validatedData.postId));
     });
 
-    // 增加文章点赞数
-    await db
-      .update(schema.posts)
-      .set({ likeCount: post.likeCount + 1 })
-      .where(eq(schema.posts.id, validatedData.postId));
+    const updatedPost = await db.query.posts.findFirst({
+      where: eq(schema.posts.id, validatedData.postId),
+      columns: { likeCount: true },
+    });
 
     return NextResponse.json({
       success: true,
-      likeCount: post.likeCount + 1,
+      likeCount: updatedPost?.likeCount ?? post.likeCount + 1,
     });
   } catch (error) {
+    // Zod 校验失败 → 400（请求格式问题）
+    if (error instanceof z.ZodError) {
+      return zodErrorResponse(error);
+    }
+
     // 处理唯一约束冲突（race condition）
-    if (error instanceof Error && error.message.includes('duplicate key')) {
+    if (isDuplicateEntryError(error)) {
       return NextResponse.json(
         {
           error: 'You have already liked this post today',
@@ -139,14 +144,14 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     // 检查限流
-    const ratelimitCheck = await withRatelimit(commentRatelimit)(request);
+    const ratelimitCheck = await withRatelimit(likeRatelimit)(request);
     if (!ratelimitCheck.success) {
       return ratelimitCheck.response!;
     }
 
     const body = await request.json();
     const validatedData = likeMomentSchema.parse(body);
-    const ipAddress = sanitizeIpAddress(getClientIP(request));
+    const ipAddress = createAnonymousClientId(request);
     const today = getToday();
 
     // 检查动态是否存在
@@ -165,43 +170,50 @@ export async function PUT(request: NextRequest) {
     const existingLike = await db.query.momentLikes.findFirst({
       where: and(
         eq(schema.momentLikes.momentId, validatedData.momentId),
-        eq(schema.momentLikes.ipAddress, ipAddress)
+        eq(schema.momentLikes.ipAddress, ipAddress),
+        eq(schema.momentLikes.likeDate, today)
       ),
-      orderBy: (momentLikes, { desc }) => [desc(momentLikes.createdAt)],
     });
 
     if (existingLike) {
-      const likeDate = new Date(existingLike.createdAt).toISOString().split('T')[0];
-
-      if (likeDate === today) {
-        return NextResponse.json(
-          {
-            error: 'You have already liked this moment today',
-            code: 'ALREADY_LIKED',
-          },
-          { status: 409 }
-        );
-      }
+      return NextResponse.json(
+        {
+          error: 'You have already liked this moment today',
+          code: 'ALREADY_LIKED',
+        },
+        { status: 409 }
+      );
     }
 
-    // 创建点赞记录
-    await db.insert(schema.momentLikes).values({
-      momentId: validatedData.momentId,
-      ipAddress,
+    await db.transaction(async (tx) => {
+      await tx.insert(schema.momentLikes).values({
+        id: randomUUID(),
+        momentId: validatedData.momentId,
+        ipAddress,
+        likeDate: today,
+      });
+
+      await tx
+        .update(schema.moments)
+        .set({ likeCount: sql`${schema.moments.likeCount} + 1` })
+        .where(eq(schema.moments.id, validatedData.momentId));
     });
 
-    // 增加动态点赞数
-    await db
-      .update(schema.moments)
-      .set({ likeCount: moment.likeCount + 1 })
-      .where(eq(schema.moments.id, validatedData.momentId));
+    const updatedMoment = await db.query.moments.findFirst({
+      where: eq(schema.moments.id, validatedData.momentId),
+      columns: { likeCount: true },
+    });
 
     return NextResponse.json({
       success: true,
-      likeCount: moment.likeCount + 1,
+      likeCount: updatedMoment?.likeCount ?? moment.likeCount + 1,
     });
   } catch (error) {
-    if (error instanceof Error && error.message.includes('duplicate key')) {
+    if (error instanceof z.ZodError) {
+      return zodErrorResponse(error);
+    }
+
+    if (isDuplicateEntryError(error)) {
       return NextResponse.json(
         {
           error: 'You have already liked this moment today',
@@ -218,3 +230,4 @@ export async function PUT(request: NextRequest) {
     );
   }
 }
+

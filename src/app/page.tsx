@@ -4,70 +4,82 @@ import { Header } from '@/components/layout/Header'
 import { Footer } from '@/components/layout/Footer'
 import { Container, Section, PageTitle } from '@/components/layout/Container'
 import { MainLayout } from '@/components/layout/Layout'
-import { Sidebar, ProfileCard, TagCloudSection, RecentPostsSection } from '@/components/layout/Sidebar'
+import { Sidebar, TagCloudSection, RecentPostsSection } from '@/components/layout/Sidebar'
 import { ArticleList } from '@/components/article/ArticleList'
+import { getHomePageData } from '@/lib/queries/home'
 
-// Mock data
-const mockArticles = [
-  {
-    slug: 'getting-started-nextjs',
-    title: 'Next.js 14 App Router 完全指南',
-    excerpt: '探索 Next.js 14 的 App Router 架构，学习如何使用服务端组件、布局和路由处理。',
-    coverImage: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800',
-    publishedAt: '2024-01-15',
-    readingTime: 8,
-    views: 1234,
-    tags: [
-      { name: 'Next.js', slug: 'nextjs' },
-      { name: 'React', slug: 'react' },
-    ],
-    author: { name: 'Qzhou', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100' }
-  },
-  {
-    slug: 'tailwindcss-best-practices',
-    title: 'Tailwind CSS 最佳实践',
-    excerpt: '掌握 Tailwind CSS 的核心概念，学习如何构建可维护的设计系统。',
-    coverImage: 'https://images.unsplash.com/photo-1507721999472-8ed4421c4af2?w=800',
-    publishedAt: '2024-01-10',
-    readingTime: 6,
-    views: 856,
-    tags: [
-      { name: 'CSS', slug: 'css' },
-      { name: 'Tailwind', slug: 'tailwind' },
-    ],
-    author: { name: 'Qzhou', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100' }
-  },
-  {
-    slug: 'typescript-advanced-patterns',
-    title: 'TypeScript 高级类型技巧',
-    excerpt: '深入理解 TypeScript 的类型系统，学习条件类型、映射类型等高级模式。',
-    coverImage: 'https://images.unsplash.com/photo-1516116216624-53e69d1ef5e7?w=800',
-    publishedAt: '2024-01-05',
-    readingTime: 10,
-    views: 967,
-    tags: [
-      { name: 'TypeScript', slug: 'typescript' },
-    ],
-    author: { name: 'Qzhou', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100' }
+export const dynamic = 'force-dynamic'
+
+export const metadata = {
+  title: 'Qzhou Blog - 个人技术博客',
+  description: '分享技术心得，记录成长历程',
+}
+
+// SVG icon kept inline so the empty state can render without any client
+// component or extra fetch. The shape is decorative only.
+function EmptyIllustration() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 200 140"
+      className="mx-auto h-40 w-auto text-brand-orange/70"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="30" y="30" width="110" height="80" rx="10" className="text-background-hover" fill="currentColor" />
+      <rect x="46" y="50" width="78" height="10" rx="3" className="text-border-strong" fill="currentColor" stroke="none" />
+      <rect x="46" y="68" width="60" height="6" rx="3" className="text-border" fill="currentColor" stroke="none" />
+      <rect x="46" y="80" width="70" height="6" rx="3" className="text-border" fill="currentColor" stroke="none" />
+      <rect x="46" y="92" width="40" height="6" rx="3" className="text-border" fill="currentColor" stroke="none" />
+      <circle cx="160" cy="40" r="14" className="text-brand-orange" fill="currentColor" stroke="none" />
+      <path d="M155 40 l4 4 l8 -8" className="text-white" stroke="currentColor" />
+    </svg>
+  )
+}
+
+function EmptyState() {
+  return (
+    <div className="bg-background-base rounded-card shadow-card p-10 md:p-14 text-center">
+      <EmptyIllustration />
+      <h2 className="mt-6 text-2xl font-semibold text-text-primary">还没有发布的文章</h2>
+      <p className="mt-3 text-sm md:text-base text-text-secondary leading-relaxed max-w-md mx-auto">
+        数据库里目前还没有任何已发布的文章。可以进入管理后台创建第一篇文章，发布后会自动出现在这里。
+      </p>
+      <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
+        <Link
+          href="/admin/posts"
+          className="inline-flex items-center px-5 py-2.5 rounded-button text-sm font-medium bg-brand-orange text-white hover:bg-brand-dark transition-colors"
+        >
+          去后台创建文章
+        </Link>
+        <Link
+          href="/posts"
+          className="inline-flex items-center px-5 py-2.5 rounded-button text-sm font-medium bg-background-hover text-text-primary hover:bg-background-cream transition-colors"
+        >
+          浏览文章列表
+        </Link>
+      </div>
+      <p className="mt-6 text-xs text-text-muted">
+        提示：示例数据可通过 <code className="px-1.5 py-0.5 rounded bg-background-hover text-text-secondary">npm run db:seed</code> 写入。
+      </p>
+    </div>
+  )
+}
+
+export default async function HomePage() {
+  const { articles, tags, recentPosts, profile, totalPosts } = await getHomePageData()
+
+  const sidebarTags = tags.map((t) => ({ name: t.name, count: t.count, href: t.href }))
+  const sidebarProfile = {
+    name: profile.name,
+    bio: profile.bio,
+    avatar: profile.avatar,
+    tags: profile.tags,
   }
-]
 
-const mockTags = [
-  { name: 'Next.js', slug: 'nextjs', count: 12 },
-  { name: 'React', slug: 'react', count: 8 },
-  { name: 'TypeScript', slug: 'typescript', count: 15 },
-  { name: 'Tailwind', slug: 'tailwind', count: 6 },
-  { name: 'Node.js', slug: 'nodejs', count: 10 },
-  { name: 'Docker', slug: 'docker', count: 4 },
-]
-
-const mockRecentPosts = [
-  { title: 'Next.js 14 App Router 完全指南', slug: 'getting-started-nextjs', date: '2024-01-15' },
-  { title: 'Tailwind CSS 最佳实践', slug: 'tailwindcss-best-practices', date: '2024-01-10' },
-  { title: 'TypeScript 高级类型技巧', slug: 'typescript-advanced-patterns', date: '2024-01-05' },
-]
-
-export default function HomePage() {
   return (
     <>
       <Header />
@@ -76,21 +88,13 @@ export default function HomePage() {
           <Container>
             <MainLayout
               sidebar={
-                <Sidebar
-                  showProfile
-                  profileCard={{
-                    name: 'Qzhou',
-                    bio: '全栈开发工程师，热爱技术，喜欢分享。专注于 Web 开发、前端架构和开源项目。',
-                    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200',
-                    tags: [
-                      { name: '全栈', href: '/tags/fullstack' },
-                      { name: '开源', href: '/tags/opensource' },
-                      { name: '分享', href: '/tags/sharing' }
-                    ]
-                  }}
-                >
-                  <TagCloudSection title="标签云" tags={mockTags} />
-                  <RecentPostsSection title="最近文章" posts={mockRecentPosts} />
+                <Sidebar showProfile profileCard={sidebarProfile}>
+                  {sidebarTags.length > 0 && (
+                    <TagCloudSection title="标签云" tags={sidebarTags} />
+                  )}
+                  {recentPosts.length > 0 && (
+                    <RecentPostsSection title="最近文章" posts={recentPosts} />
+                  )}
                 </Sidebar>
               }
             >
@@ -100,32 +104,29 @@ export default function HomePage() {
                   description="分享技术心得，记录成长历程"
                 />
 
-                {/* Featured Section */}
                 <div>
-                  <h2 className="text-2xl font-bold text-text-primary mb-6">最新文章</h2>
-                  <ArticleList articles={mockArticles} variant="grid" cols={2} />
-                </div>
-
-                {/* Categories Quick Access */}
-                <div className="bg-background-base rounded-card shadow-card p-6">
-                  <h3 className="text-lg font-semibold text-text-primary mb-4">分类导航</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {[
-                      { name: '前端开发', slug: 'frontend', count: 24 },
-                      { name: '后端技术', slug: 'backend', count: 18 },
-                      { name: 'DevOps', slug: 'devops', count: 12 },
-                      { name: '开源项目', slug: 'opensource', count: 8 },
-                    ].map(cat => (
+                  <div className="flex items-end justify-between mb-6">
+                    <h2 className="text-2xl font-bold text-text-primary">最新文章</h2>
+                    {totalPosts > 0 && (
                       <Link
-                        key={cat.slug}
-                        href={`/categories/${cat.slug}`}
-                        className="p-4 rounded-button bg-background-hover hover:bg-brand-orange hover:text-white transition-colors group"
+                        href="/posts"
+                        className="text-sm text-text-secondary hover:text-brand-orange transition-colors"
                       >
-                        <div className="font-medium">{cat.name}</div>
-                        <div className="text-sm opacity-60">{cat.count} 篇文章</div>
+                        查看全部 →
                       </Link>
-                    ))}
+                    )}
                   </div>
+
+                  {articles.length === 0 ? (
+                    <EmptyState />
+                  ) : (
+                    <ArticleList
+                      articles={articles}
+                      variant="grid"
+                      cols={2}
+                      emptyMessage="还没有发布的文章。"
+                    />
+                  )}
                 </div>
               </div>
             </MainLayout>
@@ -136,3 +137,6 @@ export default function HomePage() {
     </>
   )
 }
+
+
+

@@ -1,10 +1,11 @@
 import { z } from 'zod';
+import { randomUUID } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { db, schema } from '@/lib/db';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { eq, desc } from 'drizzle-orm';
-import { withRatelimit, globalRatelimit } from '@/lib/ratelimit';
+import { withRatelimit, globalRatelimit } from '@/lib/rate-limit';
 import { generateSlug } from '@/lib/markdown';
 
 // Validation schemas
@@ -76,11 +77,11 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user || session.user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (session.user.role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const body = await request.json();
@@ -98,17 +99,19 @@ export async function POST(request: NextRequest) {
       slug = `${slug}-${Date.now().toString(36)}`;
     }
 
-    const newPath = await db
+    const pathId = randomUUID();
+    await db
       .insert(schema.learningPaths)
       .values({
+        id: pathId,
         title: validatedData.title,
         slug,
         description: validatedData.description,
         coverImage: validatedData.coverImage,
-      })
-      .returning();
+      });
+    const newPath = await db.query.learningPaths.findFirst({ where: eq(schema.learningPaths.id, pathId) });
 
-    return NextResponse.json(newPath[0], { status: 201 });
+    return NextResponse.json(newPath, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -124,3 +127,5 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+

@@ -5,6 +5,8 @@
 import { mockUsers } from '../lib/mock-data';
 
 // 模拟认证相关的函数
+// 注意：access / refresh 通过 payload 中的 type 字段隔离，
+// 这样 verifyAccessToken 不会误接受 refresh token。
 const generateAccessToken = (user: { id: string; role: string }): string => {
   // 简化版 JWT 模拟
   const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
@@ -12,6 +14,7 @@ const generateAccessToken = (user: { id: string; role: string }): string => {
     JSON.stringify({
       sub: user.id,
       role: user.role,
+      type: 'access',
       iat: Math.floor(Date.now() / 1000),
       exp: Math.floor(Date.now() / 1000) + 900, // 15分钟
     })
@@ -20,21 +23,25 @@ const generateAccessToken = (user: { id: string; role: string }): string => {
 };
 
 const generateRefreshToken = (user: { id: string }): string => {
+  const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
   const payload = btoa(
     JSON.stringify({
       sub: user.id,
+      type: 'refresh',
       iat: Math.floor(Date.now() / 1000),
       exp: Math.floor(Date.now() / 1000) + 604800, // 7天
     })
   );
-  return `refresh.${payload}.signature`;
+  return `${header}.${payload}.refresh-signature`;
 };
 
-const verifyAccessToken = (token: string): { sub: string; role: string } | null => {
+const verifyAccessToken = (token: string): { sub: string; role: string; type: string } | null => {
   try {
     const parts = token.split('.');
     if (parts.length !== 3) return null;
     const payload = JSON.parse(atob(parts[1]));
+    // 类型隔离：access token 才允许通过校验
+    if (payload.type !== 'access') return null;
     const exp = payload.exp;
     if (Date.now() / 1000 > exp) return null;
     return payload;
@@ -80,7 +87,16 @@ describe('认证逻辑测试', () => {
       const token = generateRefreshToken(user);
 
       expect(token).toBeTruthy();
-      expect(token.startsWith('refresh.')).toBe(true);
+      expect(token.split('.')).toHaveLength(3);
+    });
+
+    test('refresh_token 标记为 refresh 类型', () => {
+      const user = mockUsers.admin;
+      const token = generateRefreshToken(user);
+      const payload = JSON.parse(atob(token.split('.')[1]));
+
+      expect(payload.type).toBe('refresh');
+      expect(payload.sub).toBe(user.id);
     });
 
     test('access_token 有效期为 15 分钟', () => {
@@ -108,6 +124,7 @@ describe('认证逻辑测试', () => {
       const expiredPayload = {
         sub: mockUsers.admin.id,
         role: 'admin',
+        type: 'access',
         iat: Math.floor(Date.now() / 1000) - 1800, // 30分钟前
         exp: Math.floor(Date.now() / 1000) - 900, // 15分钟前（已过期）
       };
@@ -143,8 +160,21 @@ describe('认证逻辑测试', () => {
 
       // refresh_token 不应该通过 access_token 验证
       const decoded = verifyAccessToken(refreshToken);
-      // 注意：由于格式不同，refresh_token 应该无法通过验证
+      // 注意：refresh_token 携带 type=refresh，无法通过 access 校验
       expect(decoded).toBeNull();
+    });
+
+    test('缺少 type 字段的 token 也无法通过 access 校验', () => {
+      const legacyToken = `header.${btoa(
+        JSON.stringify({
+          sub: mockUsers.admin.id,
+          role: 'admin',
+          iat: Math.floor(Date.now() / 1000),
+          exp: Math.floor(Date.now() / 1000) + 900,
+        })
+      )}.signature`;
+
+      expect(verifyAccessToken(legacyToken)).toBeNull();
     });
   });
 
@@ -195,6 +225,16 @@ describe('认证逻辑测试', () => {
       // 模拟中间件逻辑
       const shouldRedirect = token === null && protectedRoutes.includes(route);
       expect(shouldRedirect).toBe(true);
+    });
+
+    test('refresh_token 不能绕过中间件访问受保护路由', () => {
+      const refreshToken = generateRefreshToken(mockUsers.admin);
+      const decoded = verifyAccessToken(refreshToken);
+
+      expect(decoded).toBeNull();
+      // 即便 token 存在，也会被判定为未登录
+      const isAuthenticated = decoded !== null;
+      expect(isAuthenticated).toBe(false);
     });
   });
 });

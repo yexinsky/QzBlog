@@ -1,10 +1,11 @@
 import { z } from 'zod';
+import { randomUUID } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { db, schema } from '@/lib/db';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { eq, desc, and } from 'drizzle-orm';
-import { withRatelimit, globalRatelimit } from '@/lib/ratelimit';
+import { withRatelimit, globalRatelimit } from '@/lib/rate-limit';
 import { generateSlug } from '@/lib/markdown';
 
 // Validation schemas
@@ -84,11 +85,11 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user || session.user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (session.user.role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const body = await request.json();
@@ -106,19 +107,21 @@ export async function POST(request: NextRequest) {
       slug = `${slug}-${Date.now().toString(36)}`;
     }
 
-    const newSeries = await db
+    const seriesId = randomUUID();
+    await db
       .insert(schema.series)
       .values({
+        id: seriesId,
         title: validatedData.title,
         slug,
         description: validatedData.description,
         coverImage: validatedData.coverImage,
         isPinned: validatedData.isPinned || false,
         sortOrder: validatedData.sortOrder || 0,
-      })
-      .returning();
+      });
+    const newSeries = await db.query.series.findFirst({ where: eq(schema.series.id, seriesId) });
 
-    return NextResponse.json(newSeries[0], { status: 201 });
+    return NextResponse.json(newSeries, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -134,3 +137,5 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+

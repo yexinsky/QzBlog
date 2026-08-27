@@ -1,10 +1,11 @@
 'use client'
 
-import React from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { MessageCircle, ThumbsUp, Eye, Share2, Bookmark } from 'lucide-react'
+import { MessageCircle, ThumbsUp, Eye, Share2, Bookmark, BookmarkCheck } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
+import { useToast } from '@/components/ui/Toast'
 import { formatDate } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 
@@ -22,9 +23,15 @@ interface Comment {
 interface CommentSectionProps {
   comments: Comment[]
   className?: string
+  /**
+   * When provided, reply/like UI will be marked as unavailable via a tooltip
+   * rather than pretending to persist. Currently no comment-level API exists.
+   */
+  unavailableReason?: string
 }
 
-export const CommentSection: React.FC<CommentSectionProps> = ({ comments, className }) => {
+export const CommentSection: React.FC<CommentSectionProps> = ({ comments, className, unavailableReason }) => {
+  const reason = unavailableReason ?? '评论回复/点赞接口暂未上线'
   return (
     <div className={cn('space-y-6', className)}>
       <h3 className="text-2xl font-bold text-text-primary flex items-center space-x-2">
@@ -34,7 +41,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ comments, classN
 
       <div className="space-y-6">
         {comments.map(comment => (
-          <CommentItem key={comment.id} comment={comment} />
+          <CommentItem key={comment.id} comment={comment} unavailableReason={reason} />
         ))}
       </div>
 
@@ -50,9 +57,25 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ comments, classN
 interface CommentItemProps {
   comment: Comment
   isReply?: boolean
+  unavailableReason?: string
 }
 
-const CommentItem: React.FC<CommentItemProps> = ({ comment, isReply = false }) => {
+/**
+ * Comment-level interactions are intentionally disabled until a backend
+ * endpoint exists. Showing a non-functional button would be misleading, so we
+ * render an explicit '暂不可用' affordance with a tooltip explaining why.
+ */
+const UnavailableHint: React.FC<{ reason: string }> = ({ reason }) => (
+  <span
+    className="text-xs text-text-muted border border-dashed border-border rounded px-1.5 py-0.5 cursor-help"
+    title={reason}
+    aria-label={reason}
+  >
+    暂不可用
+  </span>
+)
+
+const CommentItem: React.FC<CommentItemProps> = ({ comment, isReply = false, unavailableReason }) => {
   return (
     <div className={cn('flex space-x-4', isReply && 'ml-12')}>
       <Avatar src={comment.author.avatar} fallback={comment.author.name} size="md" />
@@ -63,26 +86,225 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment, isReply = false }) =
         </div>
         <p className="text-text-secondary leading-relaxed">{comment.content}</p>
         <div className="flex items-center space-x-4 text-sm">
-          <button className="flex items-center space-x-1 text-text-muted hover:text-brand-orange transition-colors">
+          <button
+            type="button"
+            disabled
+            className="flex items-center space-x-1 text-text-muted opacity-60 cursor-not-allowed"
+            title={unavailableReason ?? '评论点赞接口暂未上线'}
+            aria-disabled="true"
+          >
             <ThumbsUp className="w-4 h-4" />
             <span>{comment.likes}</span>
           </button>
-          <button className="text-text-muted hover:text-brand-orange transition-colors">
+          <button
+            type="button"
+            disabled
+            className="text-text-muted opacity-60 cursor-not-allowed"
+            title={unavailableReason ?? '评论回复接口暂未上线'}
+            aria-disabled="true"
+          >
             回复
           </button>
+          {unavailableReason && <UnavailableHint reason={unavailableReason} />}
         </div>
       </div>
     </div>
   )
 }
 
+// ---- PostActions -------------------------------------------------------------
+
+/**
+ * Persistence keys. Kept narrow so the bookmark store cannot accidentally
+ * collide with theme or other settings.
+ */
+const BOOKMARK_KEY = 'qzhou-blog-bookmarks-v1'
+const LIKE_RETRY_AFTER_MS = 60_000
+
 interface PostActionsProps {
   likes?: number
   views?: number
+  /**
+   * Article postId. When provided, the like button will POST to /api/likes.
+   * When omitted the button is rendered disabled with an explicit notice; the
+   * UI never optimistically increments the counter on its own.
+   */
+  postId?: string
+  /** Title used for share text and bookmark records. */
+  title?: string
+  /** Optional explicit URL. Defaults to window.location.href in the browser. */
+  url?: string
   className?: string
 }
 
-export const PostActions: React.FC<PostActionsProps> = ({ likes = 0, views = 0, className }) => {
+interface BookmarkRecord {
+  postId: string
+  title: string
+  url: string
+  savedAt: string
+}
+
+function readBookmarks(): BookmarkRecord[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = window.localStorage.getItem(BOOKMARK_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? (parsed as BookmarkRecord[]) : []
+  } catch {
+    return []
+  }
+}
+
+function writeBookmarks(records: BookmarkRecord[]): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    window.localStorage.setItem(BOOKMARK_KEY, JSON.stringify(records))
+    return true
+  } catch {
+    return false
+  }
+}
+
+function resolveShareUrl(explicit?: string): string {
+  if (explicit) return explicit
+  if (typeof window !== 'undefined' && window.location?.href) return window.location.href
+  return ''
+}
+
+/**
+ * Try the Web Share API first (mobile-friendly), fall back to clipboard.
+ * Resolves with a human-readable result the caller can surface in a toast.
+ */
+async function sharePost(title: string, url: string): Promise<{ ok: true; via: 'share' | 'clipboard' } | { ok: false; reason: string }> {
+  if (!url) return { ok: false, reason: '无法获取当前页面地址' }
+  if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+    try {
+      await navigator.share({ title, url })
+      return { ok: true, via: 'share' }
+    } catch (err) {
+      // AbortError means the user cancelled — treat as a soft failure.
+      const name = (err && typeof err === 'object' && 'name' in err) ? String((err as { name?: unknown }).name) : ''
+      if (name === 'AbortError') return { ok: false, reason: '已取消分享' }
+      // Anything else means Web Share is unavailable; fall through to clipboard.
+    }
+  }
+  if (typeof navigator !== 'undefined' && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+    try {
+      await navigator.clipboard.writeText(url)
+      return { ok: true, via: 'clipboard' }
+    } catch {
+      return { ok: false, reason: '复制到剪贴板失败' }
+    }
+  }
+  return { ok: false, reason: '当前浏览器不支持分享或复制' }
+}
+
+export const PostActions: React.FC<PostActionsProps> = ({
+  likes = 0,
+  views = 0,
+  postId,
+  title,
+  url,
+  className,
+}) => {
+  const { addToast } = useToast()
+  const [likeCount, setLikeCount] = useState(likes)
+  const [liking, setLiking] = useState(false)
+  const [bookmarked, setBookmarked] = useState(false)
+  const [sharing, setSharing] = useState(false)
+
+  // Keep server-provided count in sync when the prop changes (e.g. navigation).
+  useEffect(() => { setLikeCount(likes) }, [likes])
+
+  // Restore bookmark state on mount; never touch localStorage during render.
+  useEffect(() => {
+    if (!postId) { setBookmarked(false); return }
+    const existing = readBookmarks()
+    setBookmarked(existing.some(r => r.postId === postId))
+  }, [postId])
+
+  const shareUrl = useMemo(() => resolveShareUrl(url), [url])
+  const canLike = typeof postId === 'string' && postId.length > 0
+  const likeDisabled = !canLike || liking
+
+  const handleLike = useCallback(async () => {
+    if (!canLike) {
+      addToast('当前文章未配置 postId，点赞接口不可用', 'warning')
+      return
+    }
+    if (liking) return
+    setLiking(true)
+    try {
+      const res = await fetch('/api/likes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ postId }),
+      })
+      if (res.status === 409) {
+        addToast('今天已经点过赞了', 'info')
+        return
+      }
+      if (!res.ok) {
+        addToast('点赞失败，请稍后再试', 'error')
+        return
+      }
+      const data = await res.json().catch(() => null) as { likeCount?: number } | null
+      if (data && typeof data.likeCount === 'number') {
+        setLikeCount(data.likeCount)
+      } else {
+        setLikeCount(prev => prev + 1)
+      }
+      addToast('点赞成功', 'success')
+    } catch {
+      addToast('点赞失败，请检查网络', 'error')
+    } finally {
+      setTimeout(() => setLiking(false), LIKE_RETRY_AFTER_MS)
+    }
+  }, [canLike, liking, postId, addToast])
+
+  const handleShare = useCallback(async () => {
+    if (sharing) return
+    setSharing(true)
+    try {
+      const result = await sharePost(title ?? '来自 Qzhou Blog 的文章', shareUrl)
+      if (result.ok) {
+        addToast(result.via === 'share' ? '已调起分享' : '链接已复制到剪贴板', 'success')
+      } else {
+        addToast(result.reason, 'warning')
+      }
+    } finally {
+      setSharing(false)
+    }
+  }, [sharing, title, shareUrl, addToast])
+
+  const handleBookmark = useCallback(() => {
+    if (!postId) {
+      addToast('当前文章未配置 postId，无法收藏', 'warning')
+      return
+    }
+    const existing = readBookmarks()
+    const idx = existing.findIndex(r => r.postId === postId)
+    let next: BookmarkRecord[]
+    let nowBookmarked: boolean
+    if (idx >= 0) {
+      next = existing.filter((_, i) => i !== idx)
+      nowBookmarked = false
+    } else {
+      next = [
+        { postId, title: title ?? '', url: shareUrl, savedAt: new Date().toISOString() },
+        ...existing,
+      ]
+      nowBookmarked = true
+    }
+    if (!writeBookmarks(next)) {
+      addToast('收藏失败：localStorage 不可用', 'error')
+      return
+    }
+    setBookmarked(nowBookmarked)
+    addToast(nowBookmarked ? '已加入收藏' : '已取消收藏', 'success')
+  }, [postId, title, shareUrl, addToast])
+
   return (
     <div className={cn('flex items-center justify-between py-4 border-y border-border', className)}>
       <div className="flex items-center space-x-4 text-sm text-text-muted">
@@ -90,23 +312,54 @@ export const PostActions: React.FC<PostActionsProps> = ({ likes = 0, views = 0, 
           <Eye className="w-4 h-4" />
           <span>{views} 阅读</span>
         </span>
-        <span className="flex items-center space-x-1">
+        <button
+          type="button"
+          onClick={handleLike}
+          disabled={likeDisabled}
+          aria-disabled={likeDisabled}
+          title={canLike ? '为文章点赞' : '当前未配置 postId，点赞接口不可用'}
+          className={cn(
+            'flex items-center space-x-1 transition-colors',
+            canLike ? 'hover:text-brand-orange cursor-pointer' : 'opacity-60 cursor-not-allowed',
+          )}
+        >
           <ThumbsUp className="w-4 h-4" />
-          <span>{likes} 赞</span>
-        </span>
+          <span>{likeCount} 赞</span>
+        </button>
         <span className="flex items-center space-x-1">
           <MessageCircle className="w-4 h-4" />
           <span>评论</span>
         </span>
       </div>
       <div className="flex items-center space-x-2">
-        <Button variant="ghost" size="sm">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleShare}
+          disabled={sharing}
+          aria-label="分享文章"
+        >
           <Share2 className="w-4 h-4 mr-1" />
           分享
         </Button>
-        <Button variant="ghost" size="sm">
-          <Bookmark className="w-4 h-4 mr-1" />
-          收藏
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleBookmark}
+          aria-pressed={bookmarked}
+          aria-label={bookmarked ? '取消收藏' : '收藏文章'}
+        >
+          {bookmarked ? (
+            <>
+              <BookmarkCheck className="w-4 h-4 mr-1 text-brand-orange" />
+              已收藏
+            </>
+          ) : (
+            <>
+              <Bookmark className="w-4 h-4 mr-1" />
+              收藏
+            </>
+          )}
         </Button>
       </div>
     </div>

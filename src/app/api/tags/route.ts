@@ -1,10 +1,11 @@
 import { z } from 'zod';
+import { randomUUID } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { db, schema } from '@/lib/db';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { eq, desc } from 'drizzle-orm';
-import { withRatelimit, globalRatelimit } from '@/lib/ratelimit';
+import { withRatelimit, globalRatelimit } from '@/lib/rate-limit';
 import { generateSlug } from '@/lib/markdown';
 
 // Validation schemas
@@ -63,11 +64,11 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user || session.user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (session.user.role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const body = await request.json();
@@ -88,16 +89,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const newTag = await db
+    const tagId = randomUUID();
+    await db
       .insert(schema.tags)
       .values({
+        id: tagId,
         name: validatedData.name,
         slug,
         color: validatedData.color,
-      })
-      .returning();
+      });
+    const newTag = await db.query.tags.findFirst({ where: eq(schema.tags.id, tagId) });
 
-    return NextResponse.json(newTag[0], { status: 201 });
+    return NextResponse.json(newTag, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -119,11 +122,11 @@ export async function PUT(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user || session.user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (session.user.role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);
@@ -152,20 +155,20 @@ export async function PUT(request: NextRequest) {
       updateData.color = validatedData.color;
     }
 
-    const updatedTag = await db
+    await db
       .update(schema.tags)
       .set(updateData)
-      .where(eq(schema.tags.id, tagId))
-      .returning();
+      .where(eq(schema.tags.id, tagId));
+    const updatedTag = await db.query.tags.findFirst({ where: eq(schema.tags.id, tagId) });
 
-    if (updatedTag.length === 0) {
+    if (!updatedTag) {
       return NextResponse.json(
         { error: 'Tag not found' },
         { status: 404 }
       );
     }
 
-    return NextResponse.json(updatedTag[0]);
+    return NextResponse.json(updatedTag);
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -187,11 +190,11 @@ export async function DELETE(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session?.user || session.user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (session.user.role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);
@@ -204,17 +207,13 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const deleted = await db
-      .delete(schema.tags)
-      .where(eq(schema.tags.id, tagId))
-      .returning();
-
-    if (deleted.length === 0) {
-      return NextResponse.json(
-        { error: 'Tag not found' },
-        { status: 404 }
-      );
+    const deleted = await db.query.tags.findFirst({ where: eq(schema.tags.id, tagId) });
+    if (!deleted) {
+      return NextResponse.json({ error: 'Tag not found' }, { status: 404 });
     }
+    await db
+      .delete(schema.tags)
+      .where(eq(schema.tags.id, tagId));
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -225,3 +224,5 @@ export async function DELETE(request: NextRequest) {
     );
   }
 }
+
+

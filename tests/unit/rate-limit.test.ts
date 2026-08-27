@@ -83,6 +83,11 @@ describe('频率限制测试', () => {
     const limiter = createCommentRateLimiter();
     const testIp = '192.168.1.100';
 
+    beforeEach(() => {
+      // 共享 limiter 与 testIp 必须每个用例都重置，避免计数串扰。
+      limiter.reset(testIp);
+    });
+
     test('首次请求允许通过', () => {
       const result = limiter.check(testIp);
       expect(result.allowed).toBe(true);
@@ -99,8 +104,6 @@ describe('频率限制测试', () => {
     });
 
     test('超过限制被阻止', () => {
-      limiter.reset(testIp);
-
       // 前3条通过
       for (let i = 0; i < 3; i++) {
         expect(limiter.check(testIp).allowed).toBe(true);
@@ -132,6 +135,10 @@ describe('频率限制测试', () => {
     const limiter = createLikeRateLimiter();
     const testIp = '192.168.1.101';
 
+    beforeEach(() => {
+      limiter.reset(testIp);
+    });
+
     test('点赞限制为每分钟 10 次', () => {
       // 前10次允许
       for (let i = 0; i < 10; i++) {
@@ -145,8 +152,6 @@ describe('频率限制测试', () => {
     });
 
     test('返回剩余请求数', () => {
-      limiter.reset(testIp);
-
       const result1 = limiter.check(testIp);
       expect(result1.remaining).toBe(9);
 
@@ -159,6 +164,10 @@ describe('频率限制测试', () => {
     const limiter = createLoginRateLimiter();
     const testIp = '192.168.1.102';
 
+    beforeEach(() => {
+      limiter.reset(testIp);
+    });
+
     test('登录限制为每分钟 5 次', () => {
       for (let i = 0; i < 5; i++) {
         expect(limiter.check(testIp).allowed).toBe(true);
@@ -169,19 +178,22 @@ describe('频率限制测试', () => {
 
   describe('全局频率限制', () => {
     const limiter = createGlobalRateLimiter();
+    const ip1 = '192.168.1.200';
+    const ip2 = '192.168.1.201';
+
+    beforeEach(() => {
+      limiter.reset(ip1);
+      limiter.reset(ip2);
+    });
 
     test('全局限制为每分钟 100 次', () => {
-      const ip = '192.168.1.200';
       for (let i = 0; i < 100; i++) {
-        expect(limiter.check(ip).allowed).toBe(true);
+        expect(limiter.check(ip1).allowed).toBe(true);
       }
-      expect(limiter.check(ip).allowed).toBe(false);
+      expect(limiter.check(ip1).allowed).toBe(false);
     });
 
     test('不同 IP 独立计数', () => {
-      const ip1 = '192.168.1.201';
-      const ip2 = '192.168.1.202';
-
       // ip1 达到限制
       for (let i = 0; i < 100; i++) {
         limiter.check(ip1);

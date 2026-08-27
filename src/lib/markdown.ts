@@ -7,7 +7,6 @@ import rehypeKatex from 'rehype-katex';
 import rehypeHighlight from 'rehype-highlight';
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import rehypeStringify from 'rehype-stringify';
-import rehypeRaw from 'rehype-raw';
 import { codeToHtml, getHighlighter } from 'shiki';
 import { createHighlighter } from 'shiki';
 
@@ -24,7 +23,7 @@ const SUPPORTED_LANGUAGES = [
  */
 const sanitizeSchema = {
   ...defaultSchema,
-  tagNames: ['p', 'br', 'strong', 'em', 'code', 'pre', 'a', 'ul', 'ol', 'li', 'blockquote', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span', 'div'],
+  tagNames: [...(defaultSchema.tagNames ?? []), 'span', 'div', 'mark', 'abbr'],
   attributes: {
     ...defaultSchema.attributes,
     code: [...(defaultSchema.attributes?.code || []), 'className', 'class'],
@@ -98,8 +97,7 @@ export async function renderMarkdown(
     .use(remarkParse)
     .use(remarkGfm)
     .use(remarkMath)
-    .use(remarkRehype, { allowDangerousHtml: true })
-    .use(rehypeRaw)
+    .use(remarkRehype, { allowDangerousHtml: false })
     .use(rehypeKatex)
     .use(rehypeSanitize, sanitizeSchema)
     .use(rehypeStringify);
@@ -299,3 +297,7 @@ export default {
   generateUniqueSlug,
   SUPPORTED_LANGUAGES,
 };
+
+
+
+

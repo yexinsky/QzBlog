@@ -16,9 +16,10 @@ const draftSchema = z.object({
 // 保存草稿
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
+    const { slug } = await params
     const session = await getServerSession(authOptions);
 
     if (!session?.user) {
@@ -28,7 +29,7 @@ export async function POST(
       );
     }
 
-    const { id } = params;
+    const { slug: id } = await params;
     const body = await request.json();
     const validatedData = draftSchema.parse(body);
 
@@ -83,17 +84,21 @@ export async function POST(
     }
 
     // 更新文章
-    const updatedPost = await db
+    await db
       .update(schema.posts)
       .set(updateData)
-      .where(eq(schema.posts.id, id))
-      .returning();
+      .where(eq(schema.posts.id, id));
+    const updatedPost = await db.query.posts.findFirst({ where: eq(schema.posts.id, id) });
+
+    if (!updatedPost) {
+      return NextResponse.json({ error: 'Post not found' }, { status: 404 });
+    }
 
     return NextResponse.json({
-      id: updatedPost[0].id,
-      savedAt: updatedPost[0].updatedAt,
-      title: updatedPost[0].title,
-      wordCount: updatedPost[0].wordCount,
+      id: updatedPost.id,
+      savedAt: updatedPost.updatedAt,
+      title: updatedPost.title,
+      wordCount: updatedPost.wordCount,
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -114,9 +119,10 @@ export async function POST(
 // 获取草稿
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
+    const { slug } = await params
     const session = await getServerSession(authOptions);
 
     if (!session?.user) {
@@ -126,7 +132,7 @@ export async function GET(
       );
     }
 
-    const { id } = params;
+    const { slug: id } = await params;
 
     const post = await db.query.posts.findFirst({
       where: eq(schema.posts.id, id),
@@ -174,3 +180,5 @@ export async function GET(
     );
   }
 }
+
+

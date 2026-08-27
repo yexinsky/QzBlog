@@ -1,12 +1,12 @@
-# 测试工具函数
+// 测试工具函数
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ReactElement, ReactNode } from 'react';
 
 // 等待元素出现
 export async function waitForElement(
-  callback: () => element,
+  callback: () => HTMLElement,
   options?: { timeout?: number }
-): Promise<element> {
+): Promise<HTMLElement> {
   return waitFor(callback, options);
 }
 

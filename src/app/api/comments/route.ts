@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { randomUUID } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { db, schema } from '@/lib/db';
 import { eq, desc, and, sql } from 'drizzle-orm';
@@ -15,6 +16,29 @@ const createCommentSchema = z.object({
   authorEmail: z.string().email(),
   contentMd: z.string().min(1).max(2000),
 });
+
+const paginationSchema = z.object({
+  page: z.coerce.number().int().min(1).max(100_000).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+
+const publicCommentColumns = {
+  id: true,
+  postId: true,
+  parentId: true,
+  rootId: true,
+  depth: true,
+  authorName: true,
+  contentHtml: true,
+  isPinned: true,
+  createdAt: true,
+} as const;
+
+const adminCommentColumns = {
+  ...publicCommentColumns,
+  contentMd: true,
+  status: true,
+} as const;
 
 const updateCommentSchema = z.object({
   authorName: z.string().min(1).max(100).optional(),
@@ -35,8 +59,10 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const postId = searchParams.get('postId');
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '20');
+    const { page, limit } = paginationSchema.parse({
+      page: searchParams.get('page') || undefined,
+      limit: searchParams.get('limit') || undefined,
+    });
 
     if (!postId) {
       return NextResponse.json(
@@ -52,6 +78,7 @@ export async function GET(request: NextRequest) {
         eq(schema.comments.postId, postId),
         eq(schema.comments.status, 'approved')
       ),
+      columns: publicCommentColumns,
       orderBy: [desc(schema.comments.isPinned), desc(schema.comments.createdAt)],
       limit,
       offset,
@@ -134,7 +161,12 @@ export async function POST(request: NextRequest) {
 
     if (validatedData.parentId) {
       const parentComment = await db.query.comments.findFirst({
-        where: eq(schema.comments.id, validatedData.parentId),
+        where: and(
+          eq(schema.comments.id, validatedData.parentId),
+          eq(schema.comments.postId, validatedData.postId),
+          eq(schema.comments.status, 'approved')
+        ),
+        columns: { id: true, postId: true, rootId: true, depth: true },
       });
 
       if (!parentComment) {
@@ -154,6 +186,21 @@ export async function POST(request: NextRequest) {
 
       depth = parentComment.depth + 1;
       rootId = parentComment.rootId || parentComment.id;
+
+      // 防御历史脏数据：root 必须存在且属于同一篇文章。
+      const rootComment = await db.query.comments.findFirst({
+        where: and(
+          eq(schema.comments.id, rootId),
+          eq(schema.comments.postId, validatedData.postId)
+        ),
+        columns: { id: true },
+      });
+      if (!rootComment) {
+        return NextResponse.json(
+          { error: 'Invalid comment thread' },
+          { status: 400 }
+        );
+      }
     }
 
     // 渲染评论HTML内容
@@ -163,9 +210,11 @@ export async function POST(request: NextRequest) {
     const ipAddress = getClientIP(request);
 
     // 创建评论（默认pending状态，需要审核）
-    const newComment = await db
+    const commentId = randomUUID();
+    await db
       .insert(schema.comments)
       .values({
+        id: commentId,
         postId: validatedData.postId,
         parentId: validatedData.parentId || null,
         rootId: rootId,
@@ -176,12 +225,16 @@ export async function POST(request: NextRequest) {
         contentHtml,
         status: 'pending', // 默认需要审核
         ipAddress,
-      })
-      .returning();
+      });
+    // 创建响应不回显邮箱、IP、审核状态或原始 Markdown。
+    const newComment = await db.query.comments.findFirst({
+      where: eq(schema.comments.id, commentId),
+      columns: publicCommentColumns,
+    });
 
     return NextResponse.json(
       {
-        ...newComment[0],
+        comment: newComment,
         message: 'Comment submitted and pending approval',
       },
       { status: 201 }
@@ -250,20 +303,24 @@ export async function PUT(request: NextRequest) {
       updateData.isPinned = validatedData.isPinned;
     }
 
-    const updatedComment = await db
+    await db
       .update(schema.comments)
       .set(updateData)
-      .where(eq(schema.comments.id, commentId))
-      .returning();
+      .where(eq(schema.comments.id, commentId));
+    // 即使管理员接口也遵循最小披露原则；邮箱/IP 不通过此接口返回。
+    const updatedComment = await db.query.comments.findFirst({
+      where: eq(schema.comments.id, commentId),
+      columns: adminCommentColumns,
+    });
 
-    if (updatedComment.length === 0) {
+    if (!updatedComment) {
       return NextResponse.json(
         { error: 'Comment not found' },
         { status: 404 }
       );
     }
 
-    return NextResponse.json(updatedComment[0]);
+    return NextResponse.json(updatedComment);
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -302,17 +359,13 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const deleted = await db
-      .delete(schema.comments)
-      .where(eq(schema.comments.id, commentId))
-      .returning();
-
-    if (deleted.length === 0) {
-      return NextResponse.json(
-        { error: 'Comment not found' },
-        { status: 404 }
-      );
+    const deleted = await db.query.comments.findFirst({ where: eq(schema.comments.id, commentId) });
+    if (!deleted) {
+      return NextResponse.json({ error: 'Comment not found' }, { status: 404 });
     }
+    await db
+      .delete(schema.comments)
+      .where(eq(schema.comments.id, commentId));
 
     return NextResponse.json({ success: true });
   } catch (error) {

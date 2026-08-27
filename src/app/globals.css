@@ -4,31 +4,50 @@
 
 @layer base {
   :root {
-    --color-primary: #D36F2B;
-    --color-primary-light: #E88B45;
-    --color-primary-dark: #B8591F;
-    --color-bg-base: #FFFFFF;
-    --color-bg-cream: #F5F1EA;
-    --color-bg-hover: #F0EBE3;
-    --color-border: #EBE7E0;
-    --color-border-strong: #D9D2C8;
-    --color-text-primary: #1A1A1A;
-    --color-text-secondary: #444444;
-    --color-text-muted: #777777;
+    /* Brand palette — RGB channel triplets so Tailwind can compose alpha */
+    --color-primary: 211 111 43;          /* #D36F2B */
+    --color-primary-light: 232 139 69;    /* #E88B45 */
+    --color-primary-dark: 184 89 31;      /* #B8591F */
+
+    /* Surfaces */
+    --color-bg-base: 255 255 255;         /* #FFFFFF */
+    --color-bg-cream: 245 241 234;        /* #F5F1EA */
+    --color-bg-hover: 240 235 227;        /* #F0EBE3 */
+
+    /* Borders */
+    --color-border: 235 231 224;          /* #EBE7E0 */
+    --color-border-strong: 217 210 200;   /* #D9D2C8 */
+
+    /* Text */
+    --color-text-primary: 26 26 26;       /* #1A1A1A */
+    --color-text-secondary: 68 68 68;     /* #444444 */
+    --color-text-muted: 119 119 119;      /* #777777 */
   }
 
   .dark {
-    --color-primary: #E88B45;
-    --color-primary-light: #D36F2B;
-    --color-primary-dark: #F5A55C;
-    --color-bg-base: #1A1A1A;
-    --color-bg-cream: #2A2A2A;
-    --color-bg-hover: #333333;
-    --color-border: #404040;
-    --color-border-strong: #555555;
-    --color-text-primary: #FFFFFF;
-    --color-text-secondary: #E0E0E0;
-    --color-text-muted: #A0A0A0;
+    --color-primary: 232 139 69;          /* #E88B45 */
+    --color-primary-light: 211 111 43;    /* #D36F2B */
+    --color-primary-dark: 245 165 92;     /* #F5A55C */
+
+    --color-bg-base: 26 26 26;            /* #1A1A1A */
+    --color-bg-cream: 42 42 42;           /* #2A2A2A */
+    --color-bg-hover: 51 51 51;           /* #333333 */
+
+    --color-border: 64 64 64;             /* #404040 */
+    --color-border-strong: 85 85 85;      /* #555555 */
+
+    --color-text-primary: 255 255 255;    /* #FFFFFF */
+    --color-text-secondary: 224 224 224;  /* #E0E0E0 */
+    --color-text-muted: 160 160 160;      /* #A0A0A0 */
+  }
+
+  html {
+    @apply bg-background-base text-text-primary;
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
   }
 
   * {

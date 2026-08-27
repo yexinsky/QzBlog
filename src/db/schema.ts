@@ -1,43 +1,43 @@
+import { randomUUID } from 'crypto';
+import { relations, sql } from 'drizzle-orm';
 import {
-  pgTable,
+  mysqlTable,
   varchar,
   text,
-  timestamp,
-  uuid,
+  datetime,
   boolean,
-  integer,
-  jsonb,
+  json,
   date,
-  serial,
-  unique,
+  int,
   index,
+  uniqueIndex,
+  mysqlEnum,
   check,
-} from 'drizzle-orm/pg-core';
-import { relations } from 'drizzle-orm';
+} from 'drizzle-orm/mysql-core';
 
 // ============================================================================
 // Users Table - 博主用户表
 // ============================================================================
-export const users = pgTable('users', {
-  id: uuid('id').primaryKey().defaultRandom(),
+export const users = mysqlTable('users', {
+  id: varchar('id', { length: 36 }).primaryKey().$defaultFn(() => randomUUID()),
   username: varchar('username', { length: 50 }).notNull().unique(),
   email: varchar('email', { length: 255 }).notNull().unique(),
   githubId: varchar('github_id', { length: 100 }).unique(),
   avatarUrl: varchar('avatar_url', { length: 500 }),
-  role: varchar('role', { length: 20 }).notNull().default('admin'),
+  role: mysqlEnum('role', ['admin', 'author'] as const).notNull().default('admin'),
   bio: text('bio'),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: datetime('created_at', { mode: 'date', fsp: 3 }).notNull().default(sql`(CURRENT_TIMESTAMP(3))`),
+  updatedAt: datetime('updated_at', { mode: 'date', fsp: 3 }).notNull().default(sql`(CURRENT_TIMESTAMP(3))`),
 });
 
 // ============================================================================
 // Posts Table - 文章表
 // ============================================================================
-export const posts = pgTable(
+export const posts = mysqlTable(
   'posts',
   {
-    id: uuid('id').primaryKey().defaultRandom(),
-    authorId: uuid('author_id')
+    id: varchar('id', { length: 36 }).primaryKey().$defaultFn(() => randomUUID()),
+    authorId: varchar('author_id', { length: 36 })
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     title: varchar('title', { length: 255 }).notNull(),
@@ -46,307 +46,316 @@ export const posts = pgTable(
     contentHtml: text('content_html').notNull(),
     summary: varchar('summary', { length: 500 }),
     coverImage: varchar('cover_image', { length: 500 }),
-    status: varchar('status', { length: 20 }).notNull().default('draft'),
+    status: mysqlEnum('status', ['draft', 'published', 'scheduled'] as const)
+      .notNull()
+      .default('draft'),
     isPinned: boolean('is_pinned').notNull().default(false),
-    wordCount: integer('word_count').notNull().default(0),
-    likeCount: integer('like_count').notNull().default(0),
-    viewCount: integer('view_count').notNull().default(0),
-    scheduledAt: timestamp('scheduled_at', { withTimezone: true }),
-    publishedAt: timestamp('published_at', { withTimezone: true }),
+    wordCount: int('word_count').notNull().default(0),
+    likeCount: int('like_count').notNull().default(0),
+    viewCount: int('view_count').notNull().default(0),
+    scheduledAt: datetime('scheduled_at', { mode: 'date', fsp: 3 }),
+    publishedAt: datetime('published_at', { mode: 'date', fsp: 3 }),
     cancelScheduled: boolean('cancel_scheduled').notNull().default(false),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    createdAt: datetime('created_at', { mode: 'date', fsp: 3 }).notNull().default(sql`(CURRENT_TIMESTAMP(3))`),
+    updatedAt: datetime('updated_at', { mode: 'date', fsp: 3 }).notNull().default(sql`(CURRENT_TIMESTAMP(3))`),
   },
-  (table) => [
-    index('posts_author_id_idx').on(table.authorId),
-    index('posts_slug_idx').on(table.slug),
-    index('posts_status_idx').on(table.status),
-    index('posts_published_at_idx').on(table.publishedAt),
-    check('posts_status_check', `"status" IN ('draft', 'published', 'scheduled')`),
-  ]
+  (table) => ({
+    authorIdIdx: index('posts_author_id_idx').on(table.authorId),
+    slugIdx: index('posts_slug_idx').on(table.slug),
+    statusIdx: index('posts_status_idx').on(table.status),
+    publishedAtIdx: index('posts_published_at_idx').on(table.publishedAt),
+    statusCheck: check('posts_status_check', sql`${table.status} IN ('draft', 'published', 'scheduled')`),
+  })
 );
 
 // ============================================================================
 // Tags Table - 标签表
 // ============================================================================
-export const tags = pgTable(
+export const tags = mysqlTable(
   'tags',
   {
-    id: uuid('id').primaryKey().defaultRandom(),
+    id: varchar('id', { length: 36 }).primaryKey().$defaultFn(() => randomUUID()),
     name: varchar('name', { length: 50 }).notNull().unique(),
     slug: varchar('slug', { length: 100 }).notNull().unique(),
     color: varchar('color', { length: 7 }),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    createdAt: datetime('created_at', { mode: 'date', fsp: 3 }).notNull().default(sql`(CURRENT_TIMESTAMP(3))`),
   },
-  (table) => [index('tags_slug_idx').on(table.slug)]
+  (table) => ({ slugIdx: index('tags_slug_idx').on(table.slug) })
 );
 
 // ============================================================================
 // Post Tags Table - 文章与标签关联表
 // ============================================================================
-export const postTags = pgTable(
+export const postTags = mysqlTable(
   'post_tags',
   {
-    postId: uuid('post_id')
+    postId: varchar('post_id', { length: 36 })
       .notNull()
       .references(() => posts.id, { onDelete: 'cascade' }),
-    tagId: uuid('tag_id')
+    tagId: varchar('tag_id', { length: 36 })
       .notNull()
       .references(() => tags.id, { onDelete: 'cascade' }),
   },
-  (table) => [index('post_tags_post_id_idx').on(table.postId), index('post_tags_tag_id_idx').on(table.tagId)]
+  (table) => ({
+    postIdIdx: index('post_tags_post_id_idx').on(table.postId),
+    tagIdIdx: index('post_tags_tag_id_idx').on(table.tagId),
+  })
 );
 
 // ============================================================================
 // Series Table - 系列表
 // ============================================================================
-export const series = pgTable(
+export const series = mysqlTable(
   'series',
   {
-    id: uuid('id').primaryKey().defaultRandom(),
+    id: varchar('id', { length: 36 }).primaryKey().$defaultFn(() => randomUUID()),
     title: varchar('title', { length: 200 }).notNull(),
     slug: varchar('slug', { length: 255 }).notNull().unique(),
     description: text('description'),
     coverImage: varchar('cover_image', { length: 500 }),
     isPinned: boolean('is_pinned').notNull().default(false),
-    sortOrder: integer('sort_order').notNull().default(0),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    sortOrder: int('sort_order').notNull().default(0),
+    createdAt: datetime('created_at', { mode: 'date', fsp: 3 }).notNull().default(sql`(CURRENT_TIMESTAMP(3))`),
+    updatedAt: datetime('updated_at', { mode: 'date', fsp: 3 }).notNull().default(sql`(CURRENT_TIMESTAMP(3))`),
   },
-  (table) => [
-    index('series_slug_idx').on(table.slug),
-    index('series_is_pinned_idx').on(table.isPinned),
-    index('series_sort_order_idx').on(table.sortOrder),
-  ]
+  (table) => ({
+    slugIdx: index('series_slug_idx').on(table.slug),
+    isPinnedIdx: index('series_is_pinned_idx').on(table.isPinned),
+    sortOrderIdx: index('series_sort_order_idx').on(table.sortOrder),
+  })
 );
 
 // ============================================================================
 // Series Posts Table - 系列文章关联表
 // ============================================================================
-export const seriesPosts = pgTable(
+export const seriesPosts = mysqlTable(
   'series_posts',
   {
-    id: uuid('id').primaryKey().defaultRandom(),
-    seriesId: uuid('series_id')
+    id: varchar('id', { length: 36 }).primaryKey().$defaultFn(() => randomUUID()),
+    seriesId: varchar('series_id', { length: 36 })
       .notNull()
       .references(() => series.id, { onDelete: 'cascade' }),
-    postId: uuid('post_id')
+    postId: varchar('post_id', { length: 36 })
       .notNull()
       .unique()
       .references(() => posts.id, { onDelete: 'cascade' }),
-    sortOrder: integer('sort_order').notNull().default(0),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    sortOrder: int('sort_order').notNull().default(0),
+    createdAt: datetime('created_at', { mode: 'date', fsp: 3 }).notNull().default(sql`(CURRENT_TIMESTAMP(3))`),
   },
-  (table) => [
-    index('series_posts_series_id_idx').on(table.seriesId),
-    index('series_posts_post_id_idx').on(table.postId),
-    index('series_posts_sort_order_idx').on(table.sortOrder),
-  ]
+  (table) => ({
+    seriesIdIdx: index('series_posts_series_id_idx').on(table.seriesId),
+    postIdIdx: index('series_posts_post_id_idx').on(table.postId),
+    sortOrderIdx: index('series_posts_sort_order_idx').on(table.sortOrder),
+  })
 );
 
 // ============================================================================
 // Comments Table - 评论表
 // ============================================================================
-export const comments = pgTable(
+export const comments = mysqlTable(
   'comments',
   {
-    id: uuid('id').primaryKey().defaultRandom(),
-    postId: uuid('post_id')
+    id: varchar('id', { length: 36 }).primaryKey().$defaultFn(() => randomUUID()),
+    postId: varchar('post_id', { length: 36 })
       .notNull()
       .references(() => posts.id, { onDelete: 'cascade' }),
-    parentId: uuid('parent_id').references((): any => comments.id, { onDelete: 'cascade' }),
-    rootId: uuid('root_id').references((): any => comments.id, { onDelete: 'cascade' }),
-    depth: integer('depth').notNull().default(0),
+    parentId: varchar('parent_id', { length: 36 }).references((): any => comments.id, { onDelete: 'cascade' }),
+    rootId: varchar('root_id', { length: 36 }).references((): any => comments.id, { onDelete: 'cascade' }),
+    depth: int('depth').notNull().default(0),
     authorName: varchar('author_name', { length: 100 }).notNull(),
     authorEmail: varchar('author_email', { length: 255 }).notNull(),
     contentMd: text('content_md').notNull(),
     contentHtml: text('content_html').notNull(),
-    status: varchar('status', { length: 20 }).notNull().default('pending'),
+    status: mysqlEnum('status', ['pending', 'approved', 'rejected'] as const)
+      .notNull()
+      .default('pending'),
     isPinned: boolean('is_pinned').notNull().default(false),
     ipAddress: varchar('ip_address', { length: 45 }),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    createdAt: datetime('created_at', { mode: 'date', fsp: 3 }).notNull().default(sql`(CURRENT_TIMESTAMP(3))`),
   },
-  (table) => [
-    index('comments_post_id_idx').on(table.postId),
-    index('comments_parent_id_idx').on(table.parentId),
-    index('comments_root_id_idx').on(table.rootId),
-    index('comments_status_idx').on(table.status),
-    index('comments_created_at_idx').on(table.createdAt),
-    check('comments_depth_check', '"depth" BETWEEN 0 AND 1'),
-    check('comments_status_check', `"status" IN ('pending', 'approved', 'rejected')`),
-  ]
+  (table) => ({
+    postIdIdx: index('comments_post_id_idx').on(table.postId),
+    parentIdIdx: index('comments_parent_id_idx').on(table.parentId),
+    rootIdIdx: index('comments_root_id_idx').on(table.rootId),
+    statusIdx: index('comments_status_idx').on(table.status),
+    createdAtIdx: index('comments_created_at_idx').on(table.createdAt),
+    depthCheck: check('comments_depth_check', sql`${table.depth} BETWEEN 0 AND 1`),
+    statusCheck: check('comments_status_check', sql`${table.status} IN ('pending', 'approved', 'rejected')`),
+  })
 );
 
 // ============================================================================
 // Moments Table - 动态表
 // ============================================================================
-export const moments = pgTable(
+export const moments = mysqlTable(
   'moments',
   {
-    id: uuid('id').primaryKey().defaultRandom(),
+  id: varchar('id', { length: 36 }).primaryKey().$defaultFn(() => randomUUID()),
     content: varchar('content', { length: 500 }).notNull(),
     imageUrl: varchar('image_url', { length: 500 }),
-    likeCount: integer('like_count').notNull().default(0),
-    publishedAt: timestamp('published_at', { withTimezone: true }).notNull().defaultNow(),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    likeCount: int('like_count').notNull().default(0),
+    publishedAt: datetime('published_at', { mode: 'date', fsp: 3 }).notNull().default(sql`(CURRENT_TIMESTAMP(3))`),
+    createdAt: datetime('created_at', { mode: 'date', fsp: 3 }).notNull().default(sql`(CURRENT_TIMESTAMP(3))`),
+    updatedAt: datetime('updated_at', { mode: 'date', fsp: 3 }).notNull().default(sql`(CURRENT_TIMESTAMP(3))`),
   },
-  (table) => [index('moments_published_at_idx').on(table.publishedAt)]
+  (table) => ({ publishedAtIdx: index('moments_published_at_idx').on(table.publishedAt) })
 );
 
 // ============================================================================
 // Moment Likes Table - 动态点赞表
 // ============================================================================
-export const momentLikes = pgTable(
+export const momentLikes = mysqlTable(
   'moment_likes',
   {
-    id: uuid('id').primaryKey().defaultRandom(),
-    momentId: uuid('moment_id')
+  id: varchar('id', { length: 36 }).primaryKey().$defaultFn(() => randomUUID()),
+    momentId: varchar('moment_id', { length: 36 })
       .notNull()
       .references(() => moments.id, { onDelete: 'cascade' }),
-    ipAddress: varchar('ip_address', { length: 45 }).notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    ipAddress: varchar('ip_address', { length: 64 }).notNull(),
+    likeDate: date('like_date', { mode: 'string' }).notNull().default(sql`(CURRENT_DATE)`),
+    createdAt: datetime('created_at', { mode: 'date', fsp: 3 }).notNull().default(sql`(CURRENT_TIMESTAMP(3))`),
   },
-  (table) => [
-    index('moment_likes_moment_id_idx').on(table.momentId),
-    unique('moment_likes_daily_unique').on(table.momentId, table.ipAddress),
-  ]
+  (table) => ({
+    momentIdIdx: index('moment_likes_moment_id_idx').on(table.momentId),
+    dailyUnique: uniqueIndex('moment_likes_daily_unique').on(table.momentId, table.ipAddress, table.likeDate),
+  })
 );
 
 // ============================================================================
 // Post Likes Table - 文章点赞表
 // ============================================================================
-export const postLikes = pgTable(
+export const postLikes = mysqlTable(
   'post_likes',
   {
-    id: uuid('id').primaryKey().defaultRandom(),
-    postId: uuid('post_id')
+  id: varchar('id', { length: 36 }).primaryKey().$defaultFn(() => randomUUID()),
+    postId: varchar('post_id', { length: 36 })
       .notNull()
       .references(() => posts.id, { onDelete: 'cascade' }),
-    ipAddress: varchar('ip_address', { length: 45 }).notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    ipAddress: varchar('ip_address', { length: 64 }).notNull(),
+    likeDate: date('like_date', { mode: 'string' }).notNull().default(sql`(CURRENT_DATE)`),
+    createdAt: datetime('created_at', { mode: 'date', fsp: 3 }).notNull().default(sql`(CURRENT_TIMESTAMP(3))`),
   },
-  (table) => [
-    index('post_likes_post_id_idx').on(table.postId),
-    unique('post_likes_daily_unique').on(table.postId, table.ipAddress),
-  ]
+  (table) => ({
+    postIdIdx: index('post_likes_post_id_idx').on(table.postId),
+    dailyUnique: uniqueIndex('post_likes_daily_unique').on(table.postId, table.ipAddress, table.likeDate),
+  })
 );
 
 // ============================================================================
 // Projects Table - 项目展示表
 // ============================================================================
-export const projects = pgTable(
+export const projects = mysqlTable(
   'projects',
   {
-    id: uuid('id').primaryKey().defaultRandom(),
+  id: varchar('id', { length: 36 }).primaryKey().$defaultFn(() => randomUUID()),
     name: varchar('name', { length: 200 }).notNull(),
     description: text('description'),
-    techStack: jsonb('tech_stack').notNull().default([]),
+    techStack: json('tech_stack').notNull(),
     coverImage: varchar('cover_image', { length: 500 }),
     githubUrl: varchar('github_url', { length: 500 }),
     demoUrl: varchar('demo_url', { length: 500 }),
-    starCount: integer('star_count').default(0),
+    starCount: int('star_count').default(0),
     isFeatured: boolean('is_featured').notNull().default(false),
-    sortOrder: integer('sort_order').notNull().default(0),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    sortOrder: int('sort_order').notNull().default(0),
+    createdAt: datetime('created_at', { mode: 'date', fsp: 3 }).notNull().default(sql`(CURRENT_TIMESTAMP(3))`),
+    updatedAt: datetime('updated_at', { mode: 'date', fsp: 3 }).notNull().default(sql`(CURRENT_TIMESTAMP(3))`),
   },
-  (table) => [
-    index('projects_is_featured_idx').on(table.isFeatured),
-    index('projects_sort_order_idx').on(table.sortOrder),
-  ]
+  (table) => ({
+    isFeaturedIdx: index('projects_is_featured_idx').on(table.isFeatured),
+    sortOrderIdx: index('projects_sort_order_idx').on(table.sortOrder),
+  })
 );
 
 // ============================================================================
 // Milestones Table - 里程碑时间线表
 // ============================================================================
-export const milestones = pgTable(
+export const milestones = mysqlTable(
   'milestones',
   {
-    id: uuid('id').primaryKey().defaultRandom(),
+    id: varchar('id', { length: 36 }).primaryKey().$defaultFn(() => randomUUID()),
     title: varchar('title', { length: 200 }).notNull(),
     description: text('description'),
     eventDate: date('event_date').notNull(),
-    eventType: varchar('event_type', { length: 50 }).notNull(),
+    eventType: mysqlEnum('event_type', ['work', 'study', 'open_source', 'speech', 'other'] as const)
+      .notNull(),
     icon: varchar('icon', { length: 50 }),
-    sortOrder: integer('sort_order').notNull().default(0),
+    sortOrder: int('sort_order').notNull().default(0),
     isPublic: boolean('is_public').notNull().default(true),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    createdAt: datetime('created_at', { mode: 'date', fsp: 3 }).notNull().default(sql`(CURRENT_TIMESTAMP(3))`),
+    updatedAt: datetime('updated_at', { mode: 'date', fsp: 3 }).notNull().default(sql`(CURRENT_TIMESTAMP(3))`),
   },
-  (table) => [
-    index('milestones_event_date_idx').on(table.eventDate),
-    index('milestones_event_type_idx').on(table.eventType),
-    index('milestones_sort_order_idx').on(table.sortOrder),
-    check(
-      'milestones_event_type_check',
-      `"event_type" IN ('work', 'study', 'open_source', 'speech', 'other')`
-    ),
-  ]
+  (table) => ({
+    eventDateIdx: index('milestones_event_date_idx').on(table.eventDate),
+    eventTypeIdx: index('milestones_event_type_idx').on(table.eventType),
+    sortOrderIdx: index('milestones_sort_order_idx').on(table.sortOrder),
+  })
 );
 
 // ============================================================================
 // Page Views Table - 访问统计原始数据表
 // ============================================================================
-export const pageViews = pgTable(
+export const pageViews = mysqlTable(
   'page_views',
   {
-    id: serial('id').primaryKey(),
+    id: int('id').primaryKey().autoincrement(),
     pageType: varchar('page_type', { length: 50 }).notNull(),
-    pageId: uuid('page_id'),
+    pageId: varchar('page_id', { length: 36 }),
     visitorIp: varchar('visitor_ip', { length: 45 }),
     userAgent: varchar('user_agent', { length: 500 }),
     referrer: varchar('referrer', { length: 500 }),
     referrerType: varchar('referrer_type', { length: 20 }),
     country: varchar('country', { length: 100 }),
-    visitedAt: timestamp('visited_at', { withTimezone: true }).notNull().defaultNow(),
+    visitedAt: datetime('visited_at', { mode: 'date', fsp: 3 }).notNull().default(sql`(CURRENT_TIMESTAMP(3))`),
   },
-  (table) => [
-    index('page_views_page_type_idx').on(table.pageType),
-    index('page_views_page_id_idx').on(table.pageId),
-    index('page_views_visited_at_idx').on(table.visitedAt),
-  ]
+  (table) => ({
+    pageTypeIdx: index('page_views_page_type_idx').on(table.pageType),
+    pageIdIdx: index('page_views_page_id_idx').on(table.pageId),
+    visitedAtIdx: index('page_views_visited_at_idx').on(table.visitedAt),
+  })
 );
 
 // ============================================================================
 // Learning Paths Table - 学习路线表
 // ============================================================================
-export const learningPaths = pgTable(
+export const learningPaths = mysqlTable(
   'learning_paths',
   {
-    id: uuid('id').primaryKey().defaultRandom(),
+    id: varchar('id', { length: 36 }).primaryKey().$defaultFn(() => randomUUID()),
     title: varchar('title', { length: 200 }).notNull(),
     slug: varchar('slug', { length: 255 }).notNull().unique(),
     description: text('description'),
     coverImage: varchar('cover_image', { length: 500 }),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    createdAt: datetime('created_at', { mode: 'date', fsp: 3 }).notNull().default(sql`(CURRENT_TIMESTAMP(3))`),
+    updatedAt: datetime('updated_at', { mode: 'date', fsp: 3 }).notNull().default(sql`(CURRENT_TIMESTAMP(3))`),
   },
-  (table) => [index('learning_paths_slug_idx').on(table.slug)]
+  (table) => ({ slugIdx: index('learning_paths_slug_idx').on(table.slug) })
 );
 
 // ============================================================================
 // Learning Nodes Table - 学习路线节点表
 // ============================================================================
-export const learningNodes = pgTable(
+export const learningNodes = mysqlTable(
   'learning_nodes',
   {
-    id: uuid('id').primaryKey().defaultRandom(),
-    pathId: uuid('path_id')
+    id: varchar('id', { length: 36 }).primaryKey().$defaultFn(() => randomUUID()),
+    pathId: varchar('path_id', { length: 36 })
       .notNull()
       .references(() => learningPaths.id, { onDelete: 'cascade' }),
     title: varchar('title', { length: 200 }).notNull(),
     description: text('description'),
-    status: varchar('status', { length: 20 }).notNull().default('planned'),
-    postId: uuid('post_id').references(() => posts.id, { onDelete: 'set null' }),
-    sortOrder: integer('sort_order').notNull().default(0),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    status: mysqlEnum('status', ['planned', 'learning', 'completed'] as const)
+      .notNull()
+      .default('planned'),
+    postId: varchar('post_id', { length: 36 }).references(() => posts.id, { onDelete: 'set null' }),
+    sortOrder: int('sort_order').notNull().default(0),
+    createdAt: datetime('created_at', { mode: 'date', fsp: 3 }).notNull().default(sql`(CURRENT_TIMESTAMP(3))`),
+    updatedAt: datetime('updated_at', { mode: 'date', fsp: 3 }).notNull().default(sql`(CURRENT_TIMESTAMP(3))`),
   },
-  (table) => [
-    index('learning_nodes_path_id_idx').on(table.pathId),
-    index('learning_nodes_sort_order_idx').on(table.sortOrder),
-    check('learning_nodes_status_check', `"status" IN ('planned', 'learning', 'completed')`),
-  ]
+  (table) => ({
+    pathIdIdx: index('learning_nodes_path_id_idx').on(table.pathId),
+    sortOrderIdx: index('learning_nodes_sort_order_idx').on(table.sortOrder),
+    statusCheck: check('learning_nodes_status_check', sql`${table.status} IN ('planned', 'learning', 'completed')`),
+  })
 );
 
 // ============================================================================
@@ -487,3 +496,5 @@ export type LearningPath = typeof learningPaths.$inferSelect;
 export type NewLearningPath = typeof learningPaths.$inferInsert;
 export type LearningNode = typeof learningNodes.$inferSelect;
 export type NewLearningNode = typeof learningNodes.$inferInsert;
+
+

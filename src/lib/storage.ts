@@ -7,71 +7,98 @@ import {
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { v4 as uuidv4 } from 'uuid';
-import path from 'path';
+import sharp from 'sharp';
 
-// S3客户端配置
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const MAX_IMAGE_PIXELS = 25_000_000;
+const MAX_IMAGE_DIMENSION = 8_192;
+const OUTPUT_FORMAT = 'webp';
+const OUTPUT_CONTENT_TYPE = 'image/webp';
+const UPLOAD_PATH_PREFIX = 'uploads';
+
 const s3Client = new S3Client({
   region: process.env.S3_REGION || 'auto',
   endpoint: process.env.S3_ENDPOINT,
-  credentials: {
-    accessKeyId: process.env.S3_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.S3_SECRET_ACCESS_KEY!,
-  },
-  forcePathStyle: true, // MinIO需要这个选项
+  credentials:
+    process.env.S3_ACCESS_KEY_ID && process.env.S3_SECRET_ACCESS_KEY
+      ? {
+          accessKeyId: process.env.S3_ACCESS_KEY_ID,
+          secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
+        }
+      : undefined,
+  forcePathStyle: process.env.S3_FORCE_PATH_STYLE !== 'false',
 });
 
 const BUCKET_NAME = process.env.S3_BUCKET_NAME || 'qzblog';
-const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const UPLOAD_PATH_PREFIX = 'uploads';
 
-/**
- * 验证文件扩展名
- */
-export function validateFileExtension(filename: string): boolean {
-  const ext = path.extname(filename).toLowerCase().slice(1);
-  return ALLOWED_EXTENSIONS.includes(ext);
+export function validateFileSize(size: number, maxSize = MAX_FILE_SIZE): boolean {
+  return Number.isSafeInteger(size) && size > 0 && size <= maxSize;
 }
 
 /**
- * 验证文件大小
+ * Filenames are deliberately generated from a server-controlled extension.
+ * The original filename and client MIME type are never trusted.
  */
-export function validateFileSize(size: number): boolean {
-  return size <= MAX_FILE_SIZE;
+export function generateUniqueFilename(extension = OUTPUT_FORMAT): string {
+  const safeExtension = extension.replace(/[^a-z0-9]/gi, '').toLowerCase() || OUTPUT_FORMAT;
+  return `${Date.now().toString(36)}-${uuidv4()}.${safeExtension}`;
 }
 
-/**
- * 生成唯一文件名
- */
-export function generateUniqueFilename(originalFilename: string): string {
-  const ext = path.extname(originalFilename).toLowerCase();
-  const uuid = uuidv4();
-  const timestamp = Date.now().toString(36);
-  return `${timestamp}-${uuid}${ext}`;
-}
-
-/**
- * 构建存储路径（按日期分片）
- */
 export function buildStoragePath(filename: string): string {
   const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-
+  const year = now.getUTCFullYear();
+  const month = String(now.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(now.getUTCDate()).padStart(2, '0');
   return `${UPLOAD_PATH_PREFIX}/${year}/${month}/${day}/${filename}`;
 }
 
-/**
- * 上传文件到S3
- */
+function publicUrlForKey(key: string): string {
+  const publicBase = process.env.S3_PUBLIC_URL?.replace(/\/+$/, '');
+  if (!publicBase) {
+    throw new Error('S3_PUBLIC_URL is required to return uploaded image URLs');
+  }
+  return `${publicBase}/${key.split('/').map(encodeURIComponent).join('/')}`;
+}
+
+export async function processImage(buffer: Buffer): Promise<Buffer> {
+  if (!validateFileSize(buffer.length)) {
+    throw new Error(`Image must be between 1 byte and ${MAX_FILE_SIZE / 1024 / 1024}MB`);
+  }
+
+  // sequentialRead and limitInputPixels protect the decoder from oversized/decompression-bomb images.
+  const image = sharp(buffer, {
+    failOn: 'warning',
+    limitInputPixels: MAX_IMAGE_PIXELS,
+    sequentialRead: true,
+  });
+
+  const metadata = await image.metadata();
+  if (!metadata.format || !['jpeg', 'png', 'webp', 'gif'].includes(metadata.format)) {
+    throw new Error('Unsupported or invalid image format');
+  }
+  if (!metadata.width || !metadata.height) {
+    throw new Error('Unable to determine image dimensions');
+  }
+  if (metadata.width > MAX_IMAGE_DIMENSION || metadata.height > MAX_IMAGE_DIMENSION) {
+    throw new Error(`Image dimensions must not exceed ${MAX_IMAGE_DIMENSION}x${MAX_IMAGE_DIMENSION}`);
+  }
+  if (metadata.width * metadata.height > MAX_IMAGE_PIXELS) {
+    throw new Error(`Image must not exceed ${MAX_IMAGE_PIXELS.toLocaleString()} pixels`);
+  }
+
+  // Re-encoding strips active/polyglot payloads and metadata. Animated input is flattened to its first frame.
+  return image
+    .rotate()
+    .webp({ quality: 82, effort: 4 })
+    .toBuffer();
+}
+
 export async function uploadFile(
   buffer: Buffer,
-  filename: string,
-  contentType: string
+  contentType = OUTPUT_CONTENT_TYPE
 ): Promise<{ url: string; key: string }> {
-  const uniqueFilename = generateUniqueFilename(filename);
-  const key = buildStoragePath(uniqueFilename);
+  const filename = generateUniqueFilename(OUTPUT_FORMAT);
+  const key = buildStoragePath(filename);
 
   await s3Client.send(
     new PutObjectCommand({
@@ -79,128 +106,90 @@ export async function uploadFile(
       Key: key,
       Body: buffer,
       ContentType: contentType,
-      ACL: 'public-read',
+      CacheControl: 'public, max-age=31536000, immutable',
+      ContentDisposition: 'inline',
+      Metadata: { processed: 'true' },
+      // Intentionally no public-read ACL. Configure read-only access at the CDN/bucket-policy layer.
     })
   );
 
-  const url = `${process.env.S3_PUBLIC_URL}/${key}`;
-  return { url, key };
+  return { url: publicUrlForKey(key), key };
 }
 
-/**
- * 获取文件预签名URL（用于私有文件访问）
- */
-export async function getPresignedUrl(key: string, expiresIn: number = 3600): Promise<string> {
-  const command = new GetObjectCommand({
-    Bucket: BUCKET_NAME,
-    Key: key,
-  });
-
-  return getSignedUrl(s3Client, command, { expiresIn });
+export async function getPresignedUrl(key: string, expiresIn = 3600): Promise<string> {
+  if (!Number.isInteger(expiresIn) || expiresIn < 1 || expiresIn > 86_400) {
+    throw new Error('Presigned URL expiry must be between 1 and 86400 seconds');
+  }
+  return getSignedUrl(
+    s3Client,
+    new GetObjectCommand({ Bucket: BUCKET_NAME, Key: key }),
+    { expiresIn }
+  );
 }
 
-/**
- * 检查文件是否存在
- */
 export async function checkFileExists(key: string): Promise<boolean> {
   try {
-    await s3Client.send(
-      new HeadObjectCommand({
-        Bucket: BUCKET_NAME,
-        Key: key,
-      })
-    );
+    await s3Client.send(new HeadObjectCommand({ Bucket: BUCKET_NAME, Key: key }));
     return true;
-  } catch (error: any) {
-    if (error.name === 'NotFound' || error.$metadata?.httpStatusCode === 404) {
+  } catch (error: unknown) {
+    const storageError = error as { name?: string; $metadata?: { httpStatusCode?: number } };
+    if (storageError.name === 'NotFound' || storageError.$metadata?.httpStatusCode === 404) {
       return false;
     }
     throw error;
   }
 }
 
-/**
- * 删除文件
- */
 export async function deleteFile(key: string): Promise<void> {
-  await s3Client.send(
-    new DeleteObjectCommand({
-      Bucket: BUCKET_NAME,
-      Key: key,
-    })
-  );
+  await s3Client.send(new DeleteObjectCommand({ Bucket: BUCKET_NAME, Key: key }));
 }
 
-/**
- * 获取文件公开URL
- */
 export function getPublicUrl(key: string): string {
-  return `${process.env.S3_PUBLIC_URL}/${key}`;
+  return publicUrlForKey(key);
 }
 
-/**
- * 从URL中提取key
- */
 export function extractKeyFromUrl(url: string): string | null {
   try {
-    const urlObj = new URL(url);
-    // 移除开头的 /
-    return urlObj.pathname.slice(1);
+    const publicBase = process.env.S3_PUBLIC_URL;
+    if (!publicBase) return null;
+    const candidate = new URL(url);
+    const base = new URL(publicBase.endsWith('/') ? publicBase : `${publicBase}/`);
+    if (candidate.origin !== base.origin || !candidate.pathname.startsWith(base.pathname)) return null;
+    const key = decodeURIComponent(candidate.pathname.slice(base.pathname.length));
+    return key.startsWith(`${UPLOAD_PATH_PREFIX}/`) && !key.includes('..') ? key : null;
   } catch {
     return null;
   }
 }
 
-/**
- * 处理图片上传的主函数
- */
 export async function handleImageUpload(
-  file: { buffer: Buffer; filename: string; mimetype: string },
+  file: { buffer: Buffer; filename?: string; mimetype?: string },
   options: { maxSize?: number } = {}
 ): Promise<{ success: true; url: string } | { success: false; error: string }> {
-  const { maxSize = MAX_FILE_SIZE } = options;
-
-  // 验证文件大小
-  if (!validateFileSize(file.buffer.length)) {
-    return {
-      success: false,
-      error: `File size exceeds ${maxSize / 1024 / 1024}MB limit`,
-    };
-  }
-
-  // 验证文件扩展名
-  if (!validateFileExtension(file.filename)) {
-    return {
-      success: false,
-      error: `File type not allowed. Allowed types: ${ALLOWED_EXTENSIONS.join(', ')}`,
-    };
-  }
-
-  // 禁止SVG（XSS风险）
-  const ext = path.extname(file.filename).toLowerCase().slice(1);
-  if (ext === 'svg') {
-    return {
-      success: false,
-      error: 'SVG files are not allowed due to security concerns',
-    };
+  const maxSize = options.maxSize ?? MAX_FILE_SIZE;
+  if (!validateFileSize(file.buffer.length, maxSize)) {
+    return { success: false, error: `Image must be between 1 byte and ${maxSize / 1024 / 1024}MB` };
   }
 
   try {
-    const result = await uploadFile(file.buffer, file.filename, file.mimetype);
-    return {
-      success: true,
-      url: result.url,
-    };
-  } catch (error: any) {
-    console.error('Upload error:', error);
+    const safeImage = await processImage(file.buffer);
+    const result = await uploadFile(safeImage, OUTPUT_CONTENT_TYPE);
+    return { success: true, url: result.url };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Invalid image';
+    console.error('Image upload rejected:', message);
     return {
       success: false,
-      error: 'Failed to upload file',
+      error: /S3_|upload|bucket/i.test(message) ? 'Failed to upload image' : message,
     };
   }
 }
 
-export default {
+export const storageUtils = {
+  validateFileSize,
+  generateUniqueFilename,
+  buildStoragePath,
+  processImage,
   uploadFile,
   getPresignedUrl,
   checkFileExists,
@@ -208,8 +197,4 @@ export default {
   getPublicUrl,
   extractKeyFromUrl,
   handleImageUpload,
-  validateFileExtension,
-  validateFileSize,
-  generateUniqueFilename,
-  buildStoragePath,
 };
