@@ -1,23 +1,39 @@
 import Link from 'next/link'
+import { asc, sql } from 'drizzle-orm'
 import { Header } from '@/components/layout/Header'
 import { Footer } from '@/components/layout/Footer'
 import { Container, Section, PageTitle } from '@/components/layout/Container'
+import { db, schema } from '@/lib/db'
+
+export const dynamic = 'force-dynamic'
 
 export const metadata = {
   title: '所有分类 - Qzhou Blog',
   description: '浏览博客中所有的分类。',
 }
 
-// 当前项目将「分类」作为高阶分组概念建模于 mock 数据中。
-// 当数据模型落地后，这里将自动列出。
-const CATEGORIES = [
-  { slug: 'frontend', name: '前端开发', description: '前端框架、组件库、设计系统相关。', count: 24 },
-  { slug: 'backend', name: '后端技术', description: '服务端、数据库、分布式架构等。', count: 18 },
-  { slug: 'devops', name: 'DevOps', description: 'CI/CD、容器化、监控与运维实践。', count: 12 },
-  { slug: 'opensource', name: '开源项目', description: '开源项目实践与个人作品展示。', count: 8 },
-]
+export default async function CategoriesPage() {
+  const categories = await db
+    .select({
+      id: schema.categories.id,
+      name: schema.categories.name,
+      slug: schema.categories.slug,
+      description: schema.categories.description,
+      postCount: sql<number>`(
+        SELECT count(*) FROM ${schema.posts}
+        WHERE ${schema.posts.categoryId} = ${schema.categories.id}
+          AND ${schema.posts.status} = 'published'
+      )`,
+    })
+    .from(schema.categories)
+    .orderBy(asc(schema.categories.sortOrder), asc(schema.categories.createdAt))
 
-export default function CategoriesPage() {
+  const [uncategorized] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(schema.posts)
+    .where(sql`${schema.posts.categoryId} IS NULL AND ${schema.posts.status} = 'published'`)
+  const uncategorizedCount = Number(uncategorized?.count ?? 0)
+
   return (
     <>
       <Header />
@@ -30,9 +46,9 @@ export default function CategoriesPage() {
             />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {CATEGORIES.map((cat) => (
+              {categories.map((cat) => (
                 <Link
-                  key={cat.slug}
+                  key={cat.id}
                   href={'/categories/' + cat.slug}
                   className="block p-6 rounded-card bg-background-base shadow-card hover:shadow-hover transition-all group"
                 >
@@ -41,13 +57,36 @@ export default function CategoriesPage() {
                       {cat.name}
                     </h2>
                     <span className="text-xs text-text-muted bg-background-hover px-2 py-0.5 rounded">
-                      {cat.count} 篇
+                      {Number(cat.postCount ?? 0)} 篇
                     </span>
                   </div>
-                  <p className="text-sm text-text-secondary leading-relaxed">{cat.description}</p>
+                  <p className="text-sm text-text-secondary leading-relaxed">{cat.description ?? '暂无描述'}</p>
                 </Link>
               ))}
+              {uncategorizedCount > 0 && (
+                <div className="p-6 rounded-card bg-background-base shadow-card">
+                  <div className="flex items-start justify-between mb-3">
+                    <h2 className="text-xl font-semibold text-text-primary">未分类</h2>
+                    <span className="text-xs text-text-muted bg-background-hover px-2 py-0.5 rounded">
+                      {uncategorizedCount} 篇
+                    </span>
+                  </div>
+                  <p className="text-sm text-text-secondary leading-relaxed">尚未归入任何分类的文章。</p>
+                </div>
+              )}
             </div>
+
+            {categories.length === 0 && uncategorizedCount === 0 && (
+              <div className="p-12 text-center bg-background-base rounded-card shadow-card">
+                <p className="text-text-muted mb-4">暂无分类，开始规划你的内容版图吧。</p>
+                <Link
+                  href="/posts"
+                  className="px-4 py-2 rounded-button bg-brand-orange text-white text-sm hover:bg-brand-dark transition-colors"
+                >
+                  浏览所有文章
+                </Link>
+              </div>
+            )}
           </Container>
         </Section>
       </main>
@@ -55,5 +94,3 @@ export default function CategoriesPage() {
     </>
   )
 }
-
-

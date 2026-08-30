@@ -1,4 +1,4 @@
-import AdminCommentsManager from '@/components/admin/AdminCommentsManager';
+import AdminCommentsManager from '@/components/console/AdminCommentsManager';
 
 export default function AdminCommentsPage() {
   return <AdminCommentsManager />;

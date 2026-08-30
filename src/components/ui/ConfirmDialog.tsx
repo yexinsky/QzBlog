@@ -15,6 +15,8 @@ interface ConfirmDialogProps {
   tone?: 'danger' | 'default'
   /** 确认请求进行中时锁定按钮 */
   loading?: boolean
+  /** 额外表单内容（如分组命名输入框） */
+  children?: React.ReactNode
   onConfirm: () => void
   onCancel: () => void
 }
@@ -31,6 +33,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   cancelText = '取消',
   tone = 'default',
   loading = false,
+  children,
   onConfirm,
   onCancel,
 }) => {
@@ -75,6 +78,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
             )}
           </div>
         </div>
+        {children && <div className="mt-4">{children}</div>}
         <div className="mt-6 flex justify-end gap-2">
           <Button type="button" variant="secondary" size="sm" onClick={onCancel} disabled={loading}>
             {cancelText}

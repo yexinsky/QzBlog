@@ -1,6 +1,6 @@
 import { db, schema } from '@/lib/db'
 import { desc } from 'drizzle-orm'
-import { AdminMomentsManager, type AdminMoment } from '@/components/admin/AdminMomentsManager'
+import { AdminMomentsManager, type AdminMoment } from '@/components/console/AdminMomentsManager'
 
 export const dynamic = 'force-dynamic'
 

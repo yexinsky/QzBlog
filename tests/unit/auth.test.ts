@@ -199,7 +199,7 @@ describe('认证逻辑测试', () => {
   });
 
   describe('中间件验证', () => {
-    const protectedRoutes = ['/admin', '/api/admin'];
+    const protectedRoutes = ['/console', '/api/admin'];
     const publicRoutes = ['/', '/posts', '/moments', '/search'];
 
     test('受保护路由需要有效的 access_token', () => {
@@ -219,7 +219,7 @@ describe('认证逻辑测试', () => {
     });
 
     test('无 token 访问受保护路由应重定向至登录页', () => {
-      const route = '/admin';
+      const route = '/console';
       const token = null;
 
       // 模拟中间件逻辑

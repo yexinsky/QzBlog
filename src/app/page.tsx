@@ -50,7 +50,7 @@ function EmptyState() {
       </p>
       <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
         <Link
-          href="/admin/posts"
+          href="/console/posts"
           className="inline-flex items-center px-5 py-2.5 rounded-button text-sm font-medium bg-brand-orange text-white hover:bg-brand-dark transition-colors"
         >
           去后台创建文章

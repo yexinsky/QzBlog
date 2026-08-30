@@ -9,6 +9,7 @@ import {
   json,
   date,
   int,
+  bigint,
   index,
   uniqueIndex,
   mysqlEnum,
@@ -46,6 +47,9 @@ export const posts = mysqlTable(
     contentHtml: text('content_html').notNull(),
     summary: varchar('summary', { length: 500 }),
     coverImage: varchar('cover_image', { length: 500 }),
+    categoryId: varchar('category_id', { length: 36 }).references(() => categories.id, {
+      onDelete: 'set null',
+    }),
     status: mysqlEnum('status', ['draft', 'published', 'scheduled'] as const)
       .notNull()
       .default('draft'),
@@ -359,6 +363,110 @@ export const learningNodes = mysqlTable(
 );
 
 // ============================================================================
+// Categories Table - 分类表（v1.1，PRD 11.2）
+// ============================================================================
+export const categories = mysqlTable(
+  'categories',
+  {
+    id: varchar('id', { length: 36 }).primaryKey().$defaultFn(() => randomUUID()),
+    name: varchar('name', { length: 100 }).notNull(),
+    slug: varchar('slug', { length: 100 }).notNull().unique(),
+    description: varchar('description', { length: 500 }),
+    sortOrder: int('sort_order').notNull().default(0),
+    createdAt: datetime('created_at', { mode: 'date', fsp: 3 }).notNull().default(sql`(CURRENT_TIMESTAMP(3))`),
+    updatedAt: datetime('updated_at', { mode: 'date', fsp: 3 }).notNull().default(sql`(CURRENT_TIMESTAMP(3))`),
+  },
+  (table) => ({
+    slugIdx: index('categories_slug_idx').on(table.slug),
+    sortOrderIdx: index('categories_sort_order_idx').on(table.sortOrder),
+  })
+);
+
+// ============================================================================
+// Attachment Groups Table - 附件分组表（v1.1，PRD 11.3）
+// ============================================================================
+export const attachmentGroups = mysqlTable(
+  'attachment_groups',
+  {
+    id: varchar('id', { length: 36 }).primaryKey().$defaultFn(() => randomUUID()),
+    displayName: varchar('display_name', { length: 100 }).notNull(),
+    sortOrder: int('sort_order').notNull().default(0),
+    createdAt: datetime('created_at', { mode: 'date', fsp: 3 }).notNull().default(sql`(CURRENT_TIMESTAMP(3))`),
+  },
+  (table) => ({
+    sortOrderIdx: index('attachment_groups_sort_order_idx').on(table.sortOrder),
+  })
+);
+
+// ============================================================================
+// Attachments Table - 附件表（v1.1，PRD 11.3）
+// ============================================================================
+export const attachments = mysqlTable(
+  'attachments',
+  {
+    id: varchar('id', { length: 36 }).primaryKey().$defaultFn(() => randomUUID()),
+    filename: varchar('filename', { length: 255 }).notNull(),
+    originalName: varchar('original_name', { length: 255 }).notNull(),
+    mimeType: varchar('mime_type', { length: 100 }).notNull(),
+    size: bigint('size', { mode: 'number' }).notNull(),
+    url: varchar('url', { length: 500 }).notNull(),
+    groupId: varchar('group_id', { length: 36 }).references(() => attachmentGroups.id, {
+      onDelete: 'set null',
+    }),
+    storage: varchar('storage', { length: 50 }).notNull().default('local'),
+    uploaderId: varchar('uploader_id', { length: 36 }).references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: datetime('created_at', { mode: 'date', fsp: 3 }).notNull().default(sql`(CURRENT_TIMESTAMP(3))`),
+  },
+  (table) => ({
+    groupIdIdx: index('attachments_group_id_idx').on(table.groupId),
+    storageIdx: index('attachments_storage_idx').on(table.storage),
+    createdAtIdx: index('attachments_created_at_idx').on(table.createdAt),
+    filenameIdx: index('attachments_filename_idx').on(table.filename),
+  })
+);
+
+// ============================================================================
+// Site Settings Table - 站点设置表（单行设计，v1.1，PRD 11.5/11.8/11.9/11.10/11.11）
+// ============================================================================
+export const siteSettings = mysqlTable('site_settings', {
+  id: varchar('id', { length: 36 }).primaryKey().$defaultFn(() => randomUUID()),
+  siteName: varchar('site_name', { length: 100 }).notNull().default('QzBlog'),
+  siteDescription: varchar('site_description', { length: 500 }),
+  siteLogo: varchar('site_logo', { length: 500 }),
+  siteFavicon: varchar('site_favicon', { length: 500 }),
+  avatarUrl: varchar('avatar_url', { length: 500 }),
+  bio: text('bio'),
+  darkModeDefault: boolean('dark_mode_default').notNull().default(false),
+  icpNumber: varchar('icp_number', { length: 100 }),
+  customCss: text('custom_css'),
+  // SEO（PRD 11.10）
+  seoKeywords: varchar('seo_keywords', { length: 500 }),
+  blockSearchEngine: boolean('block_search_engine').notNull().default(false),
+  // 评论策略（PRD 11.5）
+  enableComments: boolean('enable_comments').notNull().default(true),
+  // SMTP 邮件通知（PRD 11.8）
+  smtpEnabled: boolean('smtp_enabled').notNull().default(false),
+  smtpHost: varchar('smtp_host', { length: 200 }),
+  smtpPort: int('smtp_port'),
+  smtpUser: varchar('smtp_user', { length: 200 }),
+  smtpPass: varchar('smtp_pass', { length: 500 }),
+  smtpFrom: varchar('smtp_from', { length: 200 }),
+  smtpDisplayName: varchar('smtp_display_name', { length: 100 }),
+  // 飞书群通知（PRD 11.9）
+  feishuEnabled: boolean('feishu_enabled').notNull().default(false),
+  feishuWebhookUrl: varchar('feishu_webhook_url', { length: 500 }),
+  feishuSecret: varchar('feishu_secret', { length: 500 }),
+  feishuEvents: json('feishu_events').$type<string[]>(),
+  smtpEvents: json('smtp_events').$type<string[]>(),
+  // 备份（PRD 11.11）
+  backupKeepCount: int('backup_keep_count').notNull().default(5),
+  createdAt: datetime('created_at', { mode: 'date', fsp: 3 }).notNull().default(sql`(CURRENT_TIMESTAMP(3))`),
+  updatedAt: datetime('updated_at', { mode: 'date', fsp: 3 }).notNull().default(sql`(CURRENT_TIMESTAMP(3))`),
+});
+
+// ============================================================================
 // Relations
 // ============================================================================
 export const usersRelations = relations(users, ({ many }) => ({
@@ -370,11 +478,30 @@ export const postsRelations = relations(posts, ({ one, many }) => ({
     fields: [posts.authorId],
     references: [users.id],
   }),
+  category: one(categories, {
+    fields: [posts.categoryId],
+    references: [categories.id],
+  }),
   tags: many(postTags),
   comments: many(comments),
   likes: many(postLikes),
   seriesPost: many(seriesPosts),
   learningNodes: many(learningNodes),
+}));
+
+export const categoriesRelations = relations(categories, ({ many }) => ({
+  posts: many(posts),
+}));
+
+export const attachmentsRelations = relations(attachments, ({ one }) => ({
+  group: one(attachmentGroups, {
+    fields: [attachments.groupId],
+    references: [attachmentGroups.id],
+  }),
+}));
+
+export const attachmentGroupsRelations = relations(attachmentGroups, ({ many }) => ({
+  attachments: many(attachments),
 }));
 
 export const tagsRelations = relations(tags, ({ many }) => ({
@@ -496,5 +623,13 @@ export type LearningPath = typeof learningPaths.$inferSelect;
 export type NewLearningPath = typeof learningPaths.$inferInsert;
 export type LearningNode = typeof learningNodes.$inferSelect;
 export type NewLearningNode = typeof learningNodes.$inferInsert;
+export type Category = typeof categories.$inferSelect;
+export type NewCategory = typeof categories.$inferInsert;
+export type Attachment = typeof attachments.$inferSelect;
+export type NewAttachment = typeof attachments.$inferInsert;
+export type AttachmentGroup = typeof attachmentGroups.$inferSelect;
+export type NewAttachmentGroup = typeof attachmentGroups.$inferInsert;
+export type SiteSettings = typeof siteSettings.$inferSelect;
+export type NewSiteSettings = typeof siteSettings.$inferInsert;
 
 

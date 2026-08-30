@@ -8,6 +8,8 @@ import {
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { v4 as uuidv4 } from 'uuid';
 import sharp from 'sharp';
+import { mkdir, readFile, unlink, writeFile } from 'fs/promises';
+import path from 'path';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const MAX_IMAGE_PIXELS = 25_000_000;
@@ -15,6 +17,10 @@ const MAX_IMAGE_DIMENSION = 8_192;
 const OUTPUT_FORMAT = 'webp';
 const OUTPUT_CONTENT_TYPE = 'image/webp';
 const UPLOAD_PATH_PREFIX = 'uploads';
+// 本地磁盘策略的存储根目录（PRD 11.3：本地 uploads/ 与 MinIO 双策略并存）
+const LOCAL_STORAGE_ROOT = path.join(process.cwd(), 'uploads');
+
+export type StorageDriver = 'local' | 's3';
 
 export interface StorageConfig {
   region: string;
@@ -24,6 +30,33 @@ export interface StorageConfig {
   bucketName: string;
   publicUrl?: string;
   forcePathStyle: boolean;
+}
+
+/**
+ * Storage driver selection (PRD 11.3): ATTACHMENTS_STORAGE=local|s3 wins when set;
+ * otherwise S3/MinIO is used when configured, falling back to local disk.
+ */
+export function resolveStorageDriver(env: NodeJS.ProcessEnv = process.env): StorageDriver {
+  const explicit = firstConfigured(env.ATTACHMENTS_STORAGE, env.STORAGE_DRIVER)?.toLowerCase();
+  if (explicit === 'local' || explicit === 'minio' || explicit === 's3') {
+    return explicit === 'local' ? 'local' : 's3';
+  }
+  const hasS3 = Boolean(
+    firstConfigured(env.S3_ENDPOINT, env.MINIO_ENDPOINT) ||
+      (firstConfigured(env.S3_ACCESS_KEY_ID, env.MINIO_ACCESS_KEY_ID) &&
+        firstConfigured(env.S3_SECRET_ACCESS_KEY, env.MINIO_SECRET_ACCESS_KEY, env.MINIO_SECRET_KEY))
+  );
+  return hasS3 ? 's3' : 'local';
+}
+
+/** Key 校验：仅允许 uploads/ 前缀且无目录穿越 */
+export function isSafeStorageKey(key: string): boolean {
+  return key.startsWith(`${UPLOAD_PATH_PREFIX}/`) && !key.includes('..') && !path.isAbsolute(key);
+}
+
+function localPathForKey(key: string): string {
+  if (!isSafeStorageKey(key)) throw new Error('Invalid storage key');
+  return path.join(LOCAL_STORAGE_ROOT, key);
 }
 
 function firstConfigured(...values: Array<string | undefined>): string | undefined {
@@ -173,11 +206,19 @@ export async function processImage(buffer: Buffer): Promise<Buffer> {
 export async function uploadFile(
   buffer: Buffer,
   contentType = OUTPUT_CONTENT_TYPE
-): Promise<{ url: string; key: string }> {
-  const config = resolveStorageConfig();
+): Promise<{ url: string; key: string; storage: StorageDriver }> {
+  const driver = resolveStorageDriver();
   const filename = generateUniqueFilename(OUTPUT_FORMAT);
   const key = buildStoragePath(filename);
 
+  if (driver === 'local') {
+    const filePath = localPathForKey(key);
+    await mkdir(path.dirname(filePath), { recursive: true });
+    await writeFile(filePath, buffer);
+    return { url: `/api/files/${key}`, key, storage: 'local' };
+  }
+
+  const config = resolveStorageConfig();
   await getStorageClient(config).send(new PutObjectCommand({
     Bucket: config.bucketName,
     Key: key,
@@ -188,7 +229,7 @@ export async function uploadFile(
     Metadata: { processed: 'true' },
   }));
 
-  return { url: publicUrlForKey(key, config), key };
+  return { url: publicUrlForKey(key, config), key, storage: 's3' };
 }
 
 export async function getPresignedUrl(key: string, expiresIn = 3600): Promise<string> {
@@ -204,6 +245,14 @@ export async function getPresignedUrl(key: string, expiresIn = 3600): Promise<st
 }
 
 export async function checkFileExists(key: string): Promise<boolean> {
+  if (resolveStorageDriver() === 'local') {
+    try {
+      await readFile(localPathForKey(key));
+      return true;
+    } catch {
+      return false;
+    }
+  }
   const config = resolveStorageConfig();
   try {
     await getStorageClient(config).send(new HeadObjectCommand({ Bucket: config.bucketName, Key: key }));
@@ -216,8 +265,19 @@ export async function checkFileExists(key: string): Promise<boolean> {
 }
 
 export async function deleteFile(key: string): Promise<void> {
+  if (resolveStorageDriver() === 'local') {
+    await unlink(localPathForKey(key)).catch((error: NodeJS.ErrnoException) => {
+      if (error.code !== 'ENOENT') throw error;
+    });
+    return;
+  }
   const config = resolveStorageConfig();
   await getStorageClient(config).send(new DeleteObjectCommand({ Bucket: config.bucketName, Key: key }));
+}
+
+/** 读取本地策略存储的文件（仅 local 驱动；/api/files 路由使用） */
+export async function readLocalFile(key: string): Promise<Buffer> {
+  return readFile(localPathForKey(key));
 }
 
 export function getPublicUrl(key: string): string {
@@ -265,6 +325,8 @@ export async function handleImageUpload(
 
 export const storageUtils = {
   resolveStorageConfig,
+  resolveStorageDriver,
+  isSafeStorageKey,
   validateFileSize,
   generateUniqueFilename,
   buildStoragePath,
@@ -273,6 +335,7 @@ export const storageUtils = {
   getPresignedUrl,
   checkFileExists,
   deleteFile,
+  readLocalFile,
   getPublicUrl,
   extractKeyFromUrl,
   handleImageUpload,

@@ -49,6 +49,13 @@ const nextConfig = {
   experimental: {
     serverActions: { bodySizeLimit: '5mb' },
   },
+  async redirects() {
+    return [
+      // v1.1 后台路由迁移（PRD 11.1）：旧 /admin/** 地址 301 永久重定向至 /console/**
+      { source: '/admin', destination: '/console', permanent: true },
+      { source: '/admin/:path*', destination: '/console/:path*', permanent: true },
+    ];
+  },
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];
   },

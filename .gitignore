@@ -71,3 +71,7 @@ verify-*.png
 audit*.json
 security-audit-*.json
 admin-test-evidence-*/
+
+# 附件本地存储与备份产物（运行时生成）
+/uploads/
+/backups/

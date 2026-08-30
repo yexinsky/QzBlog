@@ -199,7 +199,7 @@ export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
   providers,
   session: { strategy: 'jwt', maxAge: 7 * 24 * 60 * 60 },
-  pages: { signIn: '/admin/login', error: '/admin/login' },
+  pages: { signIn: '/console/login', error: '/console/login' },
   callbacks: {
     async signIn({ account, profile }) {
       if (account?.provider !== 'github') return true;
@@ -237,8 +237,8 @@ export const authOptions: NextAuthOptions = {
     },
     async redirect({ url, baseUrl }) {
       if (url.startsWith('/') && !url.startsWith('//') && !url.includes('\\')) return `${baseUrl}${url}`;
-      try { return new URL(url).origin === baseUrl ? url : `${baseUrl}/admin`; }
-      catch { return `${baseUrl}/admin`; }
+      try { return new URL(url).origin === baseUrl ? url : `${baseUrl}/console`; }
+      catch { return `${baseUrl}/console`; }
     },
   },
 };

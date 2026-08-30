@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 
-const LOGIN_PATH = '/admin/login';
-const ADMIN_PREFIX = '/admin';
+const LOGIN_PATH = '/console/login';
+const ADMIN_PREFIX = '/console';
 
 function loginRedirect(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
@@ -34,4 +34,4 @@ export async function middleware(request: NextRequest) {
   return NextResponse.next();
 }
 
-export const config = { matcher: ['/admin/:path*'] };
+export const config = { matcher: ['/console/:path*'] };

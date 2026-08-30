@@ -4,7 +4,7 @@ import { eq } from 'drizzle-orm'
 import { authOptions } from '@/lib/auth'
 import { db, schema } from '@/lib/db'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
-import { AdminProfileForm } from '@/components/admin/AdminProfileForm'
+import { AdminProfileForm } from '@/components/console/AdminProfileForm'
 
 export default async function AdminProfilePage() {
   const session = await getServerSession(authOptions)

@@ -8,7 +8,7 @@ export default async function EditPostPage({ params }: { params: Promise<{ slug:
   const { slug: rawSlug } = await params
   const post = await db.query.posts.findFirst({
     where: eq(schema.posts.slug, decodeParam(rawSlug)),
-    with: { tags: { with: { tag: true } }, seriesPost: { with: { series: true } } },
+    with: { category: true, tags: { with: { tag: true } }, seriesPost: { with: { series: true } } },
   })
   if (!post) notFound()
   return <AdminPostEditor mode="edit" post={post} />

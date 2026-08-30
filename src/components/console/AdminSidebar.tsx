@@ -4,16 +4,18 @@ import React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut } from 'next-auth/react'
-import { Home, LayoutDashboard, PenTool, Image, MessageSquare, User, LogOut } from 'lucide-react'
+import { Home, LayoutDashboard, PenTool, Image, MessageSquare, FolderOpen, Paperclip, User, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface NavItem { icon: React.ElementType; label: string; href: string; badge?: number }
 const adminNavItems: NavItem[] = [
-  { icon: LayoutDashboard, label: '仪表盘', href: '/admin' },
-  { icon: PenTool, label: '文章管理', href: '/admin/posts' },
-  { icon: Image, label: '动态管理', href: '/admin/moments' },
-  { icon: MessageSquare, label: '评论管理', href: '/admin/comments' },
-  { icon: User, label: '个人资料', href: '/admin/profile' },
+  { icon: LayoutDashboard, label: '仪表盘', href: '/console' },
+  { icon: PenTool, label: '文章管理', href: '/console/posts' },
+  { icon: FolderOpen, label: '分类管理', href: '/console/categories' },
+  { icon: Image, label: '动态管理', href: '/console/moments' },
+  { icon: MessageSquare, label: '评论管理', href: '/console/comments' },
+  { icon: Paperclip, label: '附件管理', href: '/console/attachments' },
+  { icon: User, label: '个人资料', href: '/console/profile' },
 ]
 
 export const AdminSidebar: React.FC<{ className?: string }> = ({ className }) => {
@@ -21,7 +23,7 @@ export const AdminSidebar: React.FC<{ className?: string }> = ({ className }) =>
   return (
     <aside className={cn('w-64 shrink-0 bg-background-base border-r border-border min-h-screen sticky top-0', className)}>
       <div className="p-6 border-b border-border">
-        <Link href="/admin" className="flex items-center space-x-2">
+        <Link href="/console" className="flex items-center space-x-2">
           <div className="w-8 h-8 bg-brand-orange rounded-lg flex items-center justify-center"><span className="text-white font-bold text-lg">Q</span></div>
           <span className="text-xl font-bold text-text-primary">管理后台</span>
         </Link>
@@ -38,7 +40,7 @@ export const AdminSidebar: React.FC<{ className?: string }> = ({ className }) =>
         <Link href="/" className="flex items-center space-x-3 px-4 py-3 rounded-button text-text-secondary hover:bg-background-hover transition-colors">
           <Home className="w-5 h-5" /><span className="font-medium">返回前台</span>
         </Link>
-        <button type="button" onClick={() => void signOut({ callbackUrl: '/admin/login' })} className="w-full flex items-center space-x-3 px-4 py-3 rounded-button text-text-secondary hover:bg-background-hover transition-colors">
+        <button type="button" onClick={() => void signOut({ callbackUrl: '/console/login' })} className="w-full flex items-center space-x-3 px-4 py-3 rounded-button text-text-secondary hover:bg-background-hover transition-colors">
           <LogOut className="w-5 h-5" /><span className="font-medium">退出登录</span>
         </button>
       </nav>

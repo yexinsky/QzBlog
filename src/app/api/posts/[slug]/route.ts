@@ -19,6 +19,7 @@ const updatePostSchema = z.object({
   scheduledAt: z.string().datetime().optional().nullable(),
   cancelScheduled: z.boolean().optional(),
   tagIds: z.array(z.string().uuid()).max(50).optional(),
+  categoryId: z.string().uuid().optional().nullable(),
   seriesId: z.string().uuid().optional().nullable(),
   seriesOrder: z.number().int().min(0).max(1_000_000).optional(),
 }).superRefine((data, ctx) => {
@@ -29,7 +30,7 @@ const updatePostSchema = z.object({
 
 class RelationValidationError extends Error {}
 
-async function validateRelations(tagIds?: string[], seriesId?: string | null) {
+async function validateRelations(tagIds?: string[], seriesId?: string | null, categoryId?: string | null) {
   const uniqueTagIds = tagIds === undefined ? undefined : [...new Set(tagIds)];
   if (tagIds && uniqueTagIds!.length !== tagIds.length) throw new RelationValidationError('Duplicate tag IDs are not allowed');
   if (uniqueTagIds && uniqueTagIds.length > 0) {
@@ -39,6 +40,10 @@ async function validateRelations(tagIds?: string[], seriesId?: string | null) {
   if (seriesId) {
     const series = await db.select({ id: schema.series.id }).from(schema.series).where(eq(schema.series.id, seriesId)).limit(1);
     if (series.length === 0) throw new RelationValidationError('Series does not exist');
+  }
+  if (categoryId) {
+    const category = await db.select({ id: schema.categories.id }).from(schema.categories).where(eq(schema.categories.id, categoryId)).limit(1);
+    if (category.length === 0) throw new RelationValidationError('Category does not exist');
   }
   return uniqueTagIds;
 }
@@ -54,6 +59,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       where: eq(schema.posts.slug, slug),
       with: {
         author: { columns: { id: true, username: true, avatarUrl: true, bio: true } },
+        category: { columns: { id: true, name: true, slug: true } },
         tags: { with: { tag: true } },
         seriesPost: { with: { series: true }, orderBy: [desc(schema.seriesPosts.sortOrder)] },
         comments: {
@@ -135,9 +141,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (!existingPost) return NextResponse.json({ error: 'Post not found' }, { status: 404 });
 
 
-    const tagIds = await validateRelations(validatedData.tagIds, validatedData.seriesId);
+    const tagIds = await validateRelations(validatedData.tagIds, validatedData.seriesId, validatedData.categoryId);
     const updateData: Partial<typeof schema.posts.$inferInsert> = { updatedAt: new Date() };
     if (validatedData.title !== undefined) updateData.title = validatedData.title;
+    if (validatedData.categoryId !== undefined) updateData.categoryId = validatedData.categoryId;
     if (validatedData.contentMd !== undefined) {
       updateData.contentMd = validatedData.contentMd;
       updateData.contentHtml = await renderMarkdown(validatedData.contentMd);

@@ -17,6 +17,7 @@ const createPostSchema = z.object({
   status: z.enum(['draft', 'published', 'scheduled']).default('draft'),
   scheduledAt: z.string().datetime().optional(),
   tagIds: z.array(z.string().uuid()).max(50).default([]),
+  categoryId: z.string().uuid().optional().nullable(),
   seriesId: z.string().uuid().optional(),
   seriesOrder: z.number().int().min(0).max(1_000_000).default(0),
   isPinned: z.boolean().default(false),
@@ -31,11 +32,12 @@ const querySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(10),
   status: z.enum(['draft', 'published', 'scheduled']).optional(),
   tagId: z.string().uuid().optional(),
+  categoryId: z.string().uuid().optional(),
   seriesId: z.string().uuid().optional(),
   keyword: z.string().trim().max(100).optional(),
 });
 
-async function validateRelations(tagIds: string[], seriesId?: string) {
+async function validateRelations(tagIds: string[], seriesId?: string, categoryId?: string | null) {
   const uniqueTagIds = [...new Set(tagIds)];
   if (uniqueTagIds.length !== tagIds.length) {
     throw new RelationValidationError('Duplicate tag IDs are not allowed');
@@ -55,6 +57,13 @@ async function validateRelations(tagIds: string[], seriesId?: string) {
     }
   }
 
+  if (categoryId) {
+    const existingCategory = await db.select({ id: schema.categories.id }).from(schema.categories).where(eq(schema.categories.id, categoryId)).limit(1);
+    if (existingCategory.length === 0) {
+      throw new RelationValidationError('Category does not exist');
+    }
+  }
+
   return uniqueTagIds;
 }
 
@@ -71,7 +80,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid query parameters', details: parsed.error.errors }, { status: 400 });
     }
 
-    const { page, limit, status, tagId, seriesId, keyword } = parsed.data;
+    const { page, limit, status, tagId, categoryId, seriesId, keyword } = parsed.data;
     const isAdmin = session?.user?.role === 'admin';
     const userId = session?.user?.id;
     const now = new Date();
@@ -90,6 +99,9 @@ export async function GET(request: NextRequest) {
     if (tagId) {
       whereConditions.push(sql`${schema.posts.id} IN (SELECT ${schema.postTags.postId} FROM ${schema.postTags} WHERE ${schema.postTags.tagId} = ${tagId})`);
     }
+    if (categoryId) {
+      whereConditions.push(eq(schema.posts.categoryId, categoryId));
+    }
     if (seriesId) {
       whereConditions.push(sql`${schema.posts.id} IN (SELECT ${schema.seriesPosts.postId} FROM ${schema.seriesPosts} WHERE ${schema.seriesPosts.seriesId} = ${seriesId})`);
     }
@@ -102,6 +114,7 @@ export async function GET(request: NextRequest) {
       where: whereClause,
       with: {
         author: { columns: { id: true, username: true, avatarUrl: true } },
+        category: { columns: { id: true, name: true, slug: true } },
         tags: { with: { tag: true } },
         seriesPost: { with: { series: true } },
       },
@@ -129,6 +142,7 @@ export async function GET(request: NextRequest) {
         publishedAt: post.publishedAt,
         createdAt: post.createdAt,
         author: { id: post.author?.id, username: post.author?.username, avatarUrl: post.author?.avatarUrl },
+        category: post.category || null,
         tags: post.tags?.map((pt) => pt.tag) || [],
         series: post.seriesPost?.[0]?.series || null,
       })),
@@ -146,7 +160,7 @@ export async function POST(request: NextRequest) {
     if (!session?.user?.id || session.user.role !== 'admin') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const validatedData = createPostSchema.parse(await request.json());
-    const tagIds = await validateRelations(validatedData.tagIds, validatedData.seriesId);
+    const tagIds = await validateRelations(validatedData.tagIds, validatedData.seriesId, validatedData.categoryId);
     let slug = generateSlug(validatedData.title) || randomUUID();
     const existingPost = await db.query.posts.findFirst({ where: eq(schema.posts.slug, slug), columns: { id: true } });
     if (existingPost) slug = `${slug}-${randomUUID().slice(0, 8)}`;
@@ -167,6 +181,7 @@ export async function POST(request: NextRequest) {
         contentHtml,
         summary: validatedData.summary ?? generateSummary(validatedData.contentMd),
         coverImage: validatedData.coverImage,
+        categoryId: validatedData.categoryId ?? null,
         isPinned: validatedData.isPinned,
         status: validatedData.status,
         scheduledAt,

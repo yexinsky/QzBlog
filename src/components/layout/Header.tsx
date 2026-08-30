@@ -71,7 +71,7 @@ export const Header: React.FC = () => {
 
             {/* Admin Link */}
             <Link
-              href="/admin"
+              href="/console"
               className="hidden sm:inline-flex items-center px-4 py-2 text-sm font-medium bg-brand-orange text-white rounded-button hover:bg-brand-dark transition-colors"
             >
               管理后台
@@ -115,7 +115,7 @@ export const Header: React.FC = () => {
                 )
               })}
               <Link
-                href="/admin"
+                href="/console"
                 onClick={() => setIsMenuOpen(false)}
                 className="px-4 py-3 text-sm font-medium bg-brand-orange text-white rounded-button text-center"
               >

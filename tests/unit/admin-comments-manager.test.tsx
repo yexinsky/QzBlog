@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import AdminCommentsManager from '@/components/admin/AdminCommentsManager';
+import AdminCommentsManager from '@/components/console/AdminCommentsManager';
 
 jest.mock('next/link', () => ({ __esModule: true, default: ({ children, href }: any) => <a href={href}>{children}</a> }));
 

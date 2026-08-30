@@ -14,9 +14,9 @@ function LoginInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const rawCallbackUrl = searchParams.get('callbackUrl')
-  const callbackUrl = rawCallbackUrl?.startsWith('/admin') && !rawCallbackUrl.startsWith('//') && !rawCallbackUrl.includes('\\')
+  const callbackUrl = rawCallbackUrl?.startsWith('/console') && !rawCallbackUrl.startsWith('//') && !rawCallbackUrl.includes('\\')
     ? rawCallbackUrl
-    : '/admin'
+    : '/console'
 
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
