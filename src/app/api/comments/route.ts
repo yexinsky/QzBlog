@@ -7,10 +7,14 @@ import { renderCommentMarkdown } from '@/lib/markdown';
 import { withRatelimit, commentRatelimit, globalRatelimit, getClientIP } from '@/lib/rate-limit';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { getSiteSettings } from '@/lib/settings';
 
 // Validation schemas
 const createCommentSchema = z.object({
-  postId: z.string().uuid(),
+  // v1.1（PRD 11.7）：评论对象泛化为 post / moment；postId 仍被接受以兼容旧客户端
+  targetType: z.enum(['post', 'moment']).default('post'),
+  targetId: z.string().uuid().optional(),
+  postId: z.string().uuid().optional(),
   parentId: z.string().uuid().optional(),
   authorName: z.string().min(1).max(100),
   authorEmail: z.string().email(),
@@ -20,11 +24,15 @@ const createCommentSchema = z.object({
 const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).max(100_000).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
+  targetType: z.enum(['post', 'moment']).default('post'),
+  targetId: z.string().uuid().optional(),
+  postId: z.string().uuid().optional(),
 });
 
 const publicCommentColumns = {
   id: true,
-  postId: true,
+  targetType: true,
+  targetId: true,
   parentId: true,
   rootId: true,
   depth: true,
@@ -48,7 +56,7 @@ const updateCommentSchema = z.object({
   isPinned: z.boolean().optional(),
 });
 
-// 获取文章评论列表
+// 获取评论列表（按 target）
 export async function GET(request: NextRequest) {
   try {
     // 检查全局限流
@@ -58,15 +66,23 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const postId = searchParams.get('postId');
-    const { page, limit } = paginationSchema.parse({
+    const parsed = paginationSchema.safeParse({
       page: searchParams.get('page') || undefined,
       limit: searchParams.get('limit') || undefined,
+      targetType: searchParams.get('targetType') || undefined,
+      targetId: searchParams.get('targetId') || undefined,
+      postId: searchParams.get('postId') || undefined,
     });
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Invalid query parameters', details: parsed.error.errors }, { status: 400 });
+    }
 
-    if (!postId) {
+    const { page, limit } = parsed.data;
+    const targetType = parsed.data.targetType;
+    const targetId = parsed.data.targetId ?? parsed.data.postId;
+    if (!targetId) {
       return NextResponse.json(
-        { error: 'postId is required' },
+        { error: 'targetId is required' },
         { status: 400 }
       );
     }
@@ -75,7 +91,8 @@ export async function GET(request: NextRequest) {
 
     const comments = await db.query.comments.findMany({
       where: and(
-        eq(schema.comments.postId, postId),
+        eq(schema.comments.targetType, targetType),
+        eq(schema.comments.targetId, targetId),
         eq(schema.comments.status, 'approved')
       ),
       columns: publicCommentColumns,
@@ -105,7 +122,8 @@ export async function GET(request: NextRequest) {
       .select({ count: sql<number>`count(*)` })
       .from(schema.comments)
       .where(and(
-        eq(schema.comments.postId, postId),
+        eq(schema.comments.targetType, targetType),
+        eq(schema.comments.targetId, targetId),
         eq(schema.comments.status, 'approved'),
         eq(schema.comments.depth, 0)
       ));
@@ -141,18 +159,39 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const validatedData = createCommentSchema.parse(body);
+    const targetType = validatedData.targetType;
+    const targetId = validatedData.targetId ?? validatedData.postId;
+    if (!targetId) {
+      return NextResponse.json({ error: 'targetId is required' }, { status: 400 });
+    }
 
-    // 检查文章是否存在
-    const post = await db.query.posts.findFirst({
-      where: eq(schema.posts.id, validatedData.postId),
-      columns: { id: true, status: true },
-    });
+    // v1.1（PRD 11.5）：评论策略 —— 站点级总开关关闭时评论 API 直接 403
+    const settings = await getSiteSettings();
+    if (!settings.enableComments) {
+      return NextResponse.json({ error: '站点已关闭评论功能' }, { status: 403 });
+    }
 
-    if (!post || post.status !== 'published') {
-      return NextResponse.json(
-        { error: 'Post not found' },
-        { status: 404 }
-      );
+    // 校验评论对象存在；文章还需已发布且允许评论
+    if (targetType === 'post') {
+      const post = await db.query.posts.findFirst({
+        where: eq(schema.posts.id, targetId),
+        columns: { id: true, status: true, allowComment: true, authorId: true, title: true, slug: true },
+      });
+      if (!post || post.status !== 'published') {
+        return NextResponse.json({ error: 'Post not found' }, { status: 404 });
+      }
+      // v1.1（PRD 11.5）：文章级「允许评论」开关
+      if (!post.allowComment) {
+        return NextResponse.json({ error: '该文章已关闭评论' }, { status: 403 });
+      }
+    } else {
+      const moment = await db.query.moments.findFirst({
+        where: eq(schema.moments.id, targetId),
+        columns: { id: true },
+      });
+      if (!moment) {
+        return NextResponse.json({ error: 'Moment not found' }, { status: 404 });
+      }
     }
 
     // 处理嵌套回复
@@ -163,10 +202,11 @@ export async function POST(request: NextRequest) {
       const parentComment = await db.query.comments.findFirst({
         where: and(
           eq(schema.comments.id, validatedData.parentId),
-          eq(schema.comments.postId, validatedData.postId),
+          eq(schema.comments.targetType, targetType),
+          eq(schema.comments.targetId, targetId),
           eq(schema.comments.status, 'approved')
         ),
-        columns: { id: true, postId: true, rootId: true, depth: true },
+        columns: { id: true, rootId: true, depth: true },
       });
 
       if (!parentComment) {
@@ -187,11 +227,12 @@ export async function POST(request: NextRequest) {
       depth = parentComment.depth + 1;
       rootId = parentComment.rootId || parentComment.id;
 
-      // 防御历史脏数据：root 必须存在且属于同一篇文章。
+      // 防御历史脏数据：root 必须存在且属于同一评论对象。
       const rootComment = await db.query.comments.findFirst({
         where: and(
           eq(schema.comments.id, rootId),
-          eq(schema.comments.postId, validatedData.postId)
+          eq(schema.comments.targetType, targetType),
+          eq(schema.comments.targetId, targetId)
         ),
         columns: { id: true },
       });
@@ -215,7 +256,8 @@ export async function POST(request: NextRequest) {
       .insert(schema.comments)
       .values({
         id: commentId,
-        postId: validatedData.postId,
+        targetType,
+        targetId,
         parentId: validatedData.parentId || null,
         rootId: rootId,
         depth,

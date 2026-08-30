@@ -7,9 +7,10 @@ jest.mock('next/link', () => ({ __esModule: true, default: ({ children, href }: 
 
 const comment = {
   id: '11111111-1111-4111-8111-111111111111', parentId: null, depth: 0,
+  targetType: 'post', targetId: '22222222-2222-4222-8222-222222222222',
   authorName: '测试用户', authorEmail: 'test@example.com', contentMd: '一条待审核评论',
   status: 'pending', isPinned: false, createdAt: '2026-08-27T12:00:00.000Z',
-  post: { id: '22222222-2222-4222-8222-222222222222', title: '测试文章', slug: 'test-post' },
+  target: { type: 'post', id: '22222222-2222-4222-8222-222222222222', title: '测试文章', slug: 'test-post' },
 };
 const listPayload = { comments: [comment], pagination: { page: 1, limit: 20, total: 1, totalPages: 1 } };
 

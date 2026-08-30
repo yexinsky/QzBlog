@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { eq } from 'drizzle-orm'
+import { and, eq, desc } from 'drizzle-orm'
+import { getServerSession } from 'next-auth'
 import { Calendar, Clock, ArrowLeft } from 'lucide-react'
 import { Header } from '@/components/layout/Header'
 import { Footer } from '@/components/layout/Footer'
@@ -8,6 +9,8 @@ import { Container, Section } from '@/components/layout/Container'
 import { TagCloud } from '@/components/ui/Tag'
 import { CommentSection, PostActions } from '@/components/comments/CommentSection'
 import { db, schema } from '@/lib/db'
+import { authOptions } from '@/lib/auth'
+import { getSiteSettings } from '@/lib/settings'
 import { formatDate, decodeParam } from '@/lib/utils'
 import { extractToc, flattenToc } from '@/lib/markdown'
 import { TableOfContents } from '@/components/article/TableOfContents'
@@ -22,13 +25,17 @@ async function getPostBySlug(slug: string) {
     with: {
       author: { columns: { id: true, username: true, avatarUrl: true, bio: true } },
       tags: { with: { tag: true } },
-      comments: {
-        where: eq(schema.comments.status, 'approved'),
-      },
     },
   })
 
-  if (!post || post.status === 'draft') return null
+  if (!post) return null
+  // v1.1（PRD 11.4）：回收站文章前台不可见；草稿仅博主可见
+  const session = await getServerSession(authOptions)
+  const canManage = session?.user?.role === 'admin' || session?.user?.id === post.authorId
+  if (post.status === 'recycled') return null
+  if (post.status === 'draft' && !canManage) return null
+  // v1.1（PRD 11.6）：私有文章仅博主登录态可访问，读者访问返回 404
+  if (post.visibility === 'private' && !canManage) return null
   return post
 }
 
@@ -87,7 +94,21 @@ export default async function PostDetailPage({ params }: { params: Promise<{ slu
   const tocItems = post.contentMd ? flattenToc(extractToc(post.contentMd)) : []
   const related = await getRelatedPosts(tagIds, post.slug)
 
-  const comments = (post.comments || []).map((c) => ({
+  // v1.1：评论改为按 target 查询；评论区受站点级与文章级开关控制（PRD 11.5）
+  const [approvedComments, settings] = await Promise.all([
+    db.query.comments.findMany({
+      where: and(
+        eq(schema.comments.targetType, 'post'),
+        eq(schema.comments.targetId, post.id),
+        eq(schema.comments.status, 'approved')
+      ),
+      orderBy: [desc(schema.comments.isPinned), desc(schema.comments.createdAt)],
+    }),
+    getSiteSettings(),
+  ])
+  const commentsEnabled = settings.enableComments && post.allowComment
+
+  const comments = approvedComments.map((c) => ({
     id: c.id,
     author: { name: c.authorName },
     content: c.contentHtml,
@@ -169,7 +190,11 @@ export default async function PostDetailPage({ params }: { params: Promise<{ slu
               )}
 
               <div className="mt-12 pt-8 border-t border-border">
-                <CommentSection comments={comments} postId={post.id} />
+                {commentsEnabled ? (
+                  <CommentSection comments={comments} targetId={post.id} targetType="post" />
+                ) : (
+                  <p className="text-sm text-text-muted">评论功能已关闭。</p>
+                )}
               </div>
             </article>
 

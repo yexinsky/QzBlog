@@ -50,9 +50,13 @@ export const posts = mysqlTable(
     categoryId: varchar('category_id', { length: 36 }).references(() => categories.id, {
       onDelete: 'set null',
     }),
-    status: mysqlEnum('status', ['draft', 'published', 'scheduled'] as const)
+    status: mysqlEnum('status', ['draft', 'published', 'scheduled', 'recycled'] as const)
       .notNull()
       .default('draft'),
+    // v1.1（PRD 11.6）：公开/私有可见性；私有文章仅博主登录态可见
+    visibility: mysqlEnum('visibility', ['public', 'private'] as const).notNull().default('public'),
+    // v1.1（PRD 11.5）：文章级评论开关，与站点级总开关叠加生效
+    allowComment: boolean('allow_comment').notNull().default(true),
     isPinned: boolean('is_pinned').notNull().default(false),
     wordCount: int('word_count').notNull().default(0),
     likeCount: int('like_count').notNull().default(0),
@@ -68,7 +72,8 @@ export const posts = mysqlTable(
     slugIdx: index('posts_slug_idx').on(table.slug),
     statusIdx: index('posts_status_idx').on(table.status),
     publishedAtIdx: index('posts_published_at_idx').on(table.publishedAt),
-    statusCheck: check('posts_status_check', sql`${table.status} IN ('draft', 'published', 'scheduled')`),
+    statusCheck: check('posts_status_check', sql`${table.status} IN ('draft', 'published', 'scheduled', 'recycled')`),
+    visibilityIdx: index('posts_visibility_idx').on(table.visibility),
   })
 );
 
@@ -154,15 +159,15 @@ export const seriesPosts = mysqlTable(
 );
 
 // ============================================================================
-// Comments Table - 评论表
+// Comments Table - 评论表（v1.1 泛化 target：支持文章与动态，PRD 11.7）
 // ============================================================================
 export const comments = mysqlTable(
   'comments',
   {
     id: varchar('id', { length: 36 }).primaryKey().$defaultFn(() => randomUUID()),
-    postId: varchar('post_id', { length: 36 })
-      .notNull()
-      .references(() => posts.id, { onDelete: 'cascade' }),
+    // v1.1：post_id 泛化为 target_type + target_id（polymorphic，不设外键）
+    targetType: mysqlEnum('target_type', ['post', 'moment'] as const).notNull().default('post'),
+    targetId: varchar('target_id', { length: 36 }).notNull(),
     parentId: varchar('parent_id', { length: 36 }).references((): any => comments.id, { onDelete: 'cascade' }),
     rootId: varchar('root_id', { length: 36 }).references((): any => comments.id, { onDelete: 'cascade' }),
     depth: int('depth').notNull().default(0),
@@ -178,7 +183,7 @@ export const comments = mysqlTable(
     createdAt: datetime('created_at', { mode: 'date', fsp: 3 }).notNull().default(sql`(CURRENT_TIMESTAMP(3))`),
   },
   (table) => ({
-    postIdIdx: index('comments_post_id_idx').on(table.postId),
+    targetIdx: index('comments_target_idx').on(table.targetType, table.targetId),
     parentIdIdx: index('comments_parent_id_idx').on(table.parentId),
     rootIdIdx: index('comments_root_id_idx').on(table.rootId),
     statusIdx: index('comments_status_idx').on(table.status),
@@ -189,13 +194,16 @@ export const comments = mysqlTable(
 );
 
 // ============================================================================
-// Moments Table - 动态表
+// Moments Table - 动态表（v1.1 增强：Markdown + 多图，PRD 11.7）
 // ============================================================================
 export const moments = mysqlTable(
   'moments',
   {
   id: varchar('id', { length: 36 }).primaryKey().$defaultFn(() => randomUUID()),
     content: varchar('content', { length: 500 }).notNull(),
+    // v1.1：Markdown 原文与多图数组（≤9 张）；content 保留为纯文本摘要
+    contentMd: text('content_md'),
+    images: json('images').$type<string[]>(),
     imageUrl: varchar('image_url', { length: 500 }),
     likeCount: int('like_count').notNull().default(0),
     publishedAt: datetime('published_at', { mode: 'date', fsp: 3 }).notNull().default(sql`(CURRENT_TIMESTAMP(3))`),
@@ -483,7 +491,6 @@ export const postsRelations = relations(posts, ({ one, many }) => ({
     references: [categories.id],
   }),
   tags: many(postTags),
-  comments: many(comments),
   likes: many(postLikes),
   seriesPost: many(seriesPosts),
   learningNodes: many(learningNodes),
@@ -534,11 +541,9 @@ export const seriesPostsRelations = relations(seriesPosts, ({ one }) => ({
   }),
 }));
 
+// v1.1：comments 改为多态 target（post/moment），不设数据库级外键关系，
+// 需要目标信息时由查询层按 targetType 手动关联。
 export const commentsRelations = relations(comments, ({ one, many }) => ({
-  post: one(posts, {
-    fields: [comments.postId],
-    references: [posts.id],
-  }),
   parent: one(comments, {
     fields: [comments.parentId],
     references: [comments.id],

@@ -1,12 +1,17 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { eq } from 'drizzle-orm'
-import { Calendar, ArrowLeft, Heart } from 'lucide-react'
+import { and, eq, desc } from 'drizzle-orm'
+import { ArrowLeft } from 'lucide-react'
 import { Header } from '@/components/layout/Header'
 import { Footer } from '@/components/layout/Footer'
 import { Container, Section } from '@/components/layout/Container'
+import { MomentCard } from '@/components/moments/MomentCard'
+import { CommentSection } from '@/components/comments/CommentSection'
 import { db, schema } from '@/lib/db'
-import { formatDate } from '@/lib/utils'
+import { getSiteSettings } from '@/lib/settings'
+import { renderMarkdown } from '@/lib/markdown'
+
+export const dynamic = 'force-dynamic'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -36,7 +41,21 @@ export default async function MomentDetailPage({ params }: PageProps) {
   const moment = await getMomentById(resolvedParams.id)
   if (!moment) notFound()
 
+  const [settings, approvedComments] = await Promise.all([
+    getSiteSettings(),
+    db.query.comments.findMany({
+      where: and(
+        eq(schema.comments.targetType, 'moment'),
+        eq(schema.comments.targetId, moment.id),
+        eq(schema.comments.status, 'approved')
+      ),
+      orderBy: [desc(schema.comments.createdAt)],
+    }),
+  ])
+
   const publishedAt = (moment.publishedAt ?? moment.createdAt).toISOString()
+  const contentHtml = moment.contentMd ? await renderMarkdown(moment.contentMd) : ''
+  const images = moment.images ?? (moment.imageUrl ? [moment.imageUrl] : [])
 
   return (
     <>
@@ -52,32 +71,30 @@ export default async function MomentDetailPage({ params }: PageProps) {
               回到动态列表
             </Link>
 
-            <article className="bg-background-base rounded-card shadow-card p-6 md:p-8">
-              <div className="flex items-center gap-4 text-sm text-text-muted mb-4">
-                <span className="flex items-center gap-1">
-                  <Calendar className="w-4 h-4" />
-                  <time dateTime={publishedAt}>{formatDate(publishedAt)}</time>
-                </span>
-                <span className="flex items-center gap-1">
-                  <Heart className="w-4 h-4" />
-                  <span>{moment.likeCount ?? 0} 喜欢</span>
-                </span>
+            <MomentCard
+              id={moment.id}
+              contentHtml={contentHtml || `<p>${moment.content.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</p>`}
+              images={images}
+              likeCount={moment.likeCount ?? 0}
+              publishedAt={publishedAt}
+              commentCount={approvedComments.length}
+            />
+
+            {settings.enableComments && (
+              <div className="mt-8 bg-background-base rounded-card shadow-card p-6">
+                <CommentSection
+                  comments={approvedComments.map((c) => ({
+                    id: c.id,
+                    author: { name: c.authorName },
+                    content: c.contentHtml,
+                    createdAt: c.createdAt.toISOString(),
+                    likes: 0,
+                  }))}
+                  targetId={moment.id}
+                  targetType="moment"
+                />
               </div>
-
-              <p className="text-text-primary text-lg leading-relaxed whitespace-pre-line break-words">
-                {moment.content}
-              </p>
-
-              {moment.imageUrl && (
-                <div className="mt-6 overflow-hidden rounded-button">
-                  <img
-                    src={moment.imageUrl}
-                    alt="动态图片"
-                    className="w-full h-auto"
-                  />
-                </div>
-              )}
-            </article>
+            )}
           </Container>
         </Section>
       </main>
@@ -85,6 +102,3 @@ export default async function MomentDetailPage({ params }: PageProps) {
     </>
   )
 }
-
-
-

@@ -27,8 +27,10 @@ interface CommentSectionProps {
   /**
    * When provided, the comment form is rendered and submissions POST to
    * /api/comments. New comments enter the 'pending' queue for moderation.
+   * v1.1: 评论对象泛化为 post / moment（PRD 11.7）。
    */
-  postId?: string
+  targetId?: string
+  targetType?: 'post' | 'moment'
   /**
    * When provided, reply/like UI will be marked as unavailable via a tooltip
    * rather than pretending to persist. Currently no comment-level API exists.
@@ -62,7 +64,7 @@ function writeCommentIdentity(identity: { name: string; email: string }): void {
   }
 }
 
-export const CommentSection: React.FC<CommentSectionProps> = ({ comments, className, postId, unavailableReason }) => {
+export const CommentSection: React.FC<CommentSectionProps> = ({ comments, className, targetId, targetType = 'post', unavailableReason }) => {
   const reason = unavailableReason ?? '评论回复/点赞接口暂未上线'
   return (
     <div className={cn('space-y-6', className)}>
@@ -71,7 +73,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ comments, classN
         <span>评论 ({comments.length})</span>
       </h3>
 
-      {postId && <CommentForm postId={postId} />}
+      {targetId && <CommentForm targetId={targetId} targetType={targetType} />}
 
       <div className="space-y-6">
         {comments.map(comment => (
@@ -89,13 +91,14 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ comments, classN
 }
 
 interface CommentFormProps {
-  postId: string
+  targetId: string
+  targetType: 'post' | 'moment'
 }
 
 /**
  * 评论发表表单：匿名访客填写昵称与邮箱即可留言，提交后进入待审核队列。
  */
-const CommentForm: React.FC<CommentFormProps> = ({ postId }) => {
+const CommentForm: React.FC<CommentFormProps> = ({ targetId, targetType }) => {
   const { addToast } = useToast()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -121,7 +124,8 @@ const CommentForm: React.FC<CommentFormProps> = ({ postId }) => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          postId,
+          targetType,
+          targetId,
           authorName: name.trim(),
           authorEmail: email.trim(),
           contentMd: content.trim(),
@@ -145,7 +149,7 @@ const CommentForm: React.FC<CommentFormProps> = ({ postId }) => {
     } finally {
       setSubmitting(false)
     }
-  }, [canSubmit, postId, name, email, content, addToast])
+  }, [canSubmit, targetId, targetType, name, email, content, addToast])
 
   return (
     <form onSubmit={handleSubmit} className="rounded-card bg-background-base p-5 space-y-4" aria-label="发表评论">

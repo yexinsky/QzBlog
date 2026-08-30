@@ -21,6 +21,9 @@ const createPostSchema = z.object({
   seriesId: z.string().uuid().optional(),
   seriesOrder: z.number().int().min(0).max(1_000_000).default(0),
   isPinned: z.boolean().default(false),
+  // v1.1（PRD 11.5 / 11.6）
+  visibility: z.enum(['public', 'private']).default('public'),
+  allowComment: z.boolean().default(true),
 }).superRefine((data, ctx) => {
   if (data.status === 'scheduled' && !data.scheduledAt) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['scheduledAt'], message: 'scheduledAt is required for scheduled posts' });
@@ -88,6 +91,8 @@ export async function GET(request: NextRequest) {
 
     if (!userId) {
       whereConditions.push(eq(schema.posts.status, 'published'), lte(schema.posts.publishedAt, now));
+      // v1.1（PRD 11.6）：私有文章仅博主可见
+      whereConditions.push(eq(schema.posts.visibility, 'public'));
     } else if (isAdmin) {
       if (status) whereConditions.push(eq(schema.posts.status, status));
       else whereConditions.push(or(eq(schema.posts.status, 'draft'), eq(schema.posts.status, 'scheduled'), and(eq(schema.posts.status, 'published'), lte(schema.posts.publishedAt, now)))!);
@@ -183,6 +188,8 @@ export async function POST(request: NextRequest) {
         coverImage: validatedData.coverImage,
         categoryId: validatedData.categoryId ?? null,
         isPinned: validatedData.isPinned,
+        visibility: validatedData.visibility,
+        allowComment: validatedData.allowComment,
         status: validatedData.status,
         scheduledAt,
         publishedAt,

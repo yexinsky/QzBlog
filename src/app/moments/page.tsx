@@ -1,10 +1,12 @@
-import { desc } from 'drizzle-orm'
-import { Calendar } from 'lucide-react'
+import { desc, eq, and, sql } from 'drizzle-orm'
 import { Header } from '@/components/layout/Header'
 import { Footer } from '@/components/layout/Footer'
 import { Container, Section, PageTitle } from '@/components/layout/Container'
+import { MomentCard } from '@/components/moments/MomentCard'
 import { db, schema } from '@/lib/db'
-import { formatDate } from '@/lib/utils'
+import { renderMarkdown } from '@/lib/markdown'
+
+export const dynamic = 'force-dynamic'
 
 export const metadata = {
   title: '动态 - Qzhou Blog',
@@ -20,13 +22,28 @@ async function getMoments(page: number) {
     offset,
   })
 
-  return moments.map((m) => ({
-    id: m.id,
-    content: m.content,
-    imageUrl: m.imageUrl ?? undefined,
-    likeCount: m.likeCount ?? 0,
-    publishedAt: (m.publishedAt ?? m.createdAt).toISOString(),
-  }))
+  // 每条动态的已审核评论数（v1.1 动态评论，PRD 11.7）
+  const commentCounts = moments.length
+    ? await db
+        .select({ targetId: schema.comments.targetId, count: sql<number>`count(*)` })
+        .from(schema.comments)
+        .where(and(eq(schema.comments.targetType, 'moment'), sql`${schema.comments.targetId} IN (${sql.join(moments.map((m) => sql`${m.id}`), sql`, `)})`, eq(schema.comments.status, 'approved')))
+        .groupBy(schema.comments.targetId)
+    : []
+  const countByMoment = new Map(commentCounts.map((row) => [row.targetId, Number(row.count)]))
+
+  // 服务端统一渲染 Markdown（复用文章的 sanitize 管线）
+  return Promise.all(
+    moments.map(async (m) => ({
+      id: m.id,
+      contentHtml: m.contentMd ? await renderMarkdown(m.contentMd) : '',
+      plainContent: m.content,
+      images: m.images ?? (m.imageUrl ? [m.imageUrl] : []),
+      likeCount: m.likeCount ?? 0,
+      publishedAt: (m.publishedAt ?? m.createdAt).toISOString(),
+      commentCount: countByMoment.get(m.id) ?? 0,
+    }))
+  )
 }
 
 interface PageProps {
@@ -58,37 +75,14 @@ export default async function MomentsPage({ searchParams }: PageProps) {
                 {moments.map((m) => (
                   <li key={m.id} className="pl-6 relative">
                     <span className="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-brand-orange ring-4 ring-background-cream" />
-                    <article className="bg-background-base rounded-card shadow-card p-5">
-                      <div className="flex items-center gap-1 text-xs text-text-muted mb-2">
-                        <Calendar className="w-3 h-3" />
-                        <time dateTime={m.publishedAt}>{formatDate(m.publishedAt)}</time>
-                        {m.likeCount > 0 && (
-                          <span className="ml-2">· {m.likeCount} 喜欢</span>
-                        )}
-                      </div>
-                      <p className="text-text-secondary leading-relaxed whitespace-pre-line break-words">
-                        {m.content}
-                      </p>
-                      {m.imageUrl && (
-                        <div className="mt-3 overflow-hidden rounded-button">
-                          <a href={'/moments/' + m.id}>
-                            <img
-                              src={m.imageUrl}
-                              alt="动态图片"
-                              className="w-full h-auto hover:scale-[1.02] transition-transform"
-                            />
-                          </a>
-                        </div>
-                      )}
-                      <div className="mt-3">
-                        <a
-                          href={'/moments/' + m.id}
-                          className="text-xs text-text-muted hover:text-brand-orange transition-colors"
-                        >
-                          查看详情 →
-                        </a>
-                      </div>
-                    </article>
+                    <MomentCard
+                      id={m.id}
+                      contentHtml={m.contentHtml || `<p>${m.plainContent.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</p>`}
+                      images={m.images}
+                      likeCount={m.likeCount}
+                      publishedAt={m.publishedAt}
+                      commentCount={m.commentCount}
+                    />
                   </li>
                 ))}
               </ol>
@@ -111,6 +105,3 @@ export default async function MomentsPage({ searchParams }: PageProps) {
     </>
   )
 }
-
-
-

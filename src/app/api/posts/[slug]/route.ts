@@ -16,6 +16,9 @@ const updatePostSchema = z.object({
   coverImage: z.string().url().optional().nullable(),
   status: z.enum(['draft', 'published', 'scheduled']).optional(),
   isPinned: z.boolean().optional(),
+  // v1.1（PRD 11.5 / 11.6）
+  visibility: z.enum(['public', 'private']).optional(),
+  allowComment: z.boolean().optional(),
   scheduledAt: z.string().datetime().optional().nullable(),
   cancelScheduled: z.boolean().optional(),
   tagIds: z.array(z.string().uuid()).max(50).optional(),
@@ -62,21 +65,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         category: { columns: { id: true, name: true, slug: true } },
         tags: { with: { tag: true } },
         seriesPost: { with: { series: true }, orderBy: [desc(schema.seriesPosts.sortOrder)] },
-        comments: {
-          where: eq(schema.comments.status, 'approved'),
-          columns: {
-            id: true,
-            postId: true,
-            parentId: true,
-            rootId: true,
-            depth: true,
-            authorName: true,
-            contentHtml: true,
-            isPinned: true,
-            createdAt: true,
-          },
-          orderBy: [desc(schema.comments.isPinned), desc(schema.comments.createdAt)],
-        },
       },
     });
 
@@ -84,12 +72,37 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     const isOwner = session?.user?.id === post.authorId;
     const canManage = session?.user?.role === 'admin' || isOwner;
+    // v1.1：回收站文章对所有人不可见（PRD 11.4）；私有文章仅博主可见（PRD 11.6）
+    if (post.status === 'recycled') return NextResponse.json({ error: 'Post not found' }, { status: 404 });
+    if (post.visibility === 'private' && !canManage) return NextResponse.json({ error: 'Post not found' }, { status: 404 });
     const isPublic = post.status === 'published' && post.publishedAt !== null && post.publishedAt <= new Date();
     if (!isPublic && !canManage) return NextResponse.json({ error: 'Post not found' }, { status: 404 });
 
     if (isPublic) {
       void db.update(schema.posts).set({ viewCount: post.viewCount + 1 }).where(eq(schema.posts.id, post.id)).catch((err) => console.error('Failed to update view count:', err));
     }
+
+    // v1.1：评论改为多态 target，按 targetType='post' + targetId 查询
+    const approvedComments = await db.query.comments.findMany({
+      where: and(
+        eq(schema.comments.targetType, 'post'),
+        eq(schema.comments.targetId, post.id),
+        eq(schema.comments.status, 'approved')
+      ),
+      columns: {
+        id: true,
+        targetType: true,
+        targetId: true,
+        parentId: true,
+        rootId: true,
+        depth: true,
+        authorName: true,
+        contentHtml: true,
+        isPinned: true,
+        createdAt: true,
+      },
+      orderBy: [desc(schema.comments.isPinned), desc(schema.comments.createdAt)],
+    });
 
     let seriesNav = null;
     if (post.seriesPost?.[0]) {
@@ -108,7 +121,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       seriesNav = { series: relation.series, prev: visible(prevPost), next: visible(nextPost) };
     }
 
-    const comments = post.comments || [];
+    const comments = approvedComments;
     const roots = comments.filter((comment) => comment.depth === 0);
     type PublicComment = (typeof comments)[number];
     const map = new Map(comments.map((comment) => [comment.id, { ...comment, replies: [] as PublicComment[] }]));
@@ -154,6 +167,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (validatedData.summary !== undefined) updateData.summary = validatedData.summary;
     if (validatedData.coverImage !== undefined) updateData.coverImage = validatedData.coverImage;
     if (validatedData.isPinned !== undefined) updateData.isPinned = validatedData.isPinned;
+    if (validatedData.visibility !== undefined) updateData.visibility = validatedData.visibility;
+    if (validatedData.allowComment !== undefined) updateData.allowComment = validatedData.allowComment;
     if (validatedData.cancelScheduled !== undefined) updateData.cancelScheduled = validatedData.cancelScheduled;
     if (validatedData.scheduledAt !== undefined) updateData.scheduledAt = validatedData.scheduledAt ? new Date(validatedData.scheduledAt) : null;
     if (validatedData.status !== undefined) {
@@ -203,8 +218,9 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
     const post = await db.query.posts.findFirst({ where: eq(schema.posts.slug, slug) });
     if (!post) return NextResponse.json({ error: 'Post not found' }, { status: 404 });
 
-    await db.delete(schema.posts).where(eq(schema.posts.id, post.id));
-    return NextResponse.json({ success: true });
+    // v1.1（PRD 11.4）：删除进回收站，可从 /console/posts/recycle-bin 恢复或彻底删除
+    await db.update(schema.posts).set({ status: 'recycled', updatedAt: new Date() }).where(eq(schema.posts.id, post.id));
+    return NextResponse.json({ success: true, recycled: true });
   } catch (error) {
     console.error('Error deleting post:', error);
     return NextResponse.json({ error: 'Failed to delete post' }, { status: 500 });

@@ -4,7 +4,7 @@ import React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut } from 'next-auth/react'
-import { Home, LayoutDashboard, PenTool, Image, MessageSquare, FolderOpen, Paperclip, User, LogOut } from 'lucide-react'
+import { Home, LayoutDashboard, PenTool, Image, MessageSquare, FolderOpen, Paperclip, Trash2, Settings, User, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface NavItem { icon: React.ElementType; label: string; href: string; badge?: number }
@@ -12,10 +12,12 @@ const adminNavItems: NavItem[] = [
   { icon: LayoutDashboard, label: '仪表盘', href: '/console' },
   { icon: PenTool, label: '文章管理', href: '/console/posts' },
   { icon: FolderOpen, label: '分类管理', href: '/console/categories' },
+  { icon: Trash2, label: '回收站', href: '/console/posts/recycle-bin' },
   { icon: Image, label: '动态管理', href: '/console/moments' },
   { icon: MessageSquare, label: '评论管理', href: '/console/comments' },
   { icon: Paperclip, label: '附件管理', href: '/console/attachments' },
   { icon: User, label: '个人资料', href: '/console/profile' },
+  { icon: Settings, label: '站点设置', href: '/console/settings' },
 ]
 
 export const AdminSidebar: React.FC<{ className?: string }> = ({ className }) => {

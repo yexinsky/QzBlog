@@ -8,8 +8,13 @@ import { Card, CardContent, CardHeader } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 type CommentStatus = 'pending' | 'approved' | 'rejected';
+type CommentTarget =
+  | { type: 'post'; id: string; title: string; slug: string | null }
+  | { type: 'moment'; id: string; title: string; slug: null };
 type CommentItem = {
   id: string;
+  targetType: 'post' | 'moment';
+  targetId: string;
   parentId: string | null;
   depth: number;
   authorName: string;
@@ -18,7 +23,7 @@ type CommentItem = {
   status: CommentStatus;
   isPinned: boolean;
   createdAt: string;
-  post: { id: string; title: string; slug: string };
+  target: CommentTarget;
 };
 type ApiResponse = {
   comments: CommentItem[];
@@ -133,7 +138,14 @@ export default function AdminCommentsManager() {
                         {comment.depth > 0 && <span className="text-xs text-text-muted">回复</span>}
                       </div>
                       <p className="mt-1 text-xs text-text-muted">{comment.authorEmail} · <time dateTime={comment.createdAt}>{new Date(comment.createdAt).toLocaleString('zh-CN')}</time></p>
-                      <p className="mt-1 text-xs text-text-muted">文章：<Link className="text-brand-orange hover:underline" href={`/posts/${comment.post.slug}`} target="_blank">{comment.post.title}</Link></p>
+                      <p className="mt-1 text-xs text-text-muted">
+                        {comment.target.type === 'post' ? '文章：' : '动态：'}
+                        {comment.target.type === 'post' && comment.target.slug ? (
+                          <Link className="text-brand-orange hover:underline" href={`/posts/${comment.target.slug}`} target="_blank">{comment.target.title}</Link>
+                        ) : (
+                          <span>{comment.target.title}</span>
+                        )}
+                      </p>
                     </div>
                   </div>
                   <p className="mt-3 whitespace-pre-wrap break-words rounded-md bg-background-subtle p-3 text-sm text-text-primary">{comment.contentMd}</p>
