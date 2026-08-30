@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next'
+import { getSiteSettings } from '@/lib/settings'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,8 +14,16 @@ function resolveBaseUrl(): string {
   return raw.replace(/\/$/, '')
 }
 
-export default function robots(): MetadataRoute.Robots {
+export default async function robots(): Promise<MetadataRoute.Robots> {
   const baseUrl = resolveBaseUrl()
+
+  // v1.1（PRD 11.10）：屏蔽搜索引擎开关 —— 开启后全站 Disallow（开发/临时闭站场景）
+  const settings = await getSiteSettings()
+  if (settings.blockSearchEngine) {
+    return {
+      rules: [{ userAgent: '*', disallow: '/' }],
+    }
+  }
 
   return {
     rules: [

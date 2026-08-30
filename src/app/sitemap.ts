@@ -1,6 +1,7 @@
 import type { MetadataRoute } from 'next'
 import { eq, desc } from 'drizzle-orm'
 import { db, schema } from '@/lib/db'
+import { getSiteSettings } from '@/lib/settings'
 
 export const dynamic = 'force-dynamic'
 
@@ -38,6 +39,12 @@ async function safeFindMany<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = resolveBaseUrl()
   const now = new Date()
+
+  // v1.1（PRD 11.10）：屏蔽搜索引擎时 sitemap 返回空
+  const settings = await getSiteSettings().catch(() => null)
+  if (settings?.blockSearchEngine) {
+    return []
+  }
 
   const staticRoutes: SitemapEntry[] = [
     '',

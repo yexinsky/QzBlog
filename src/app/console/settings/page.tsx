@@ -18,6 +18,19 @@ export default async function AdminSettingsPage() {
         customCss: settings.customCss,
         icpNumber: settings.icpNumber,
         enableComments: settings.enableComments,
+        seoKeywords: settings.seoKeywords,
+        blockSearchEngine: settings.blockSearchEngine,
+        smtpEnabled: settings.smtpEnabled,
+        smtpHost: settings.smtpHost,
+        smtpPort: settings.smtpPort,
+        smtpUser: settings.smtpUser,
+        smtpPassSet: Boolean(settings.smtpPass),
+        smtpFrom: settings.smtpFrom,
+        smtpDisplayName: settings.smtpDisplayName,
+        feishuEnabled: settings.feishuEnabled,
+        feishuWebhookUrl: settings.feishuWebhookUrl,
+        feishuSecretSet: Boolean(settings.feishuSecret),
+        feishuEvents: Array.isArray(settings.feishuEvents) ? settings.feishuEvents : [],
       }}
     />
   );

@@ -8,6 +8,7 @@ import { authOptions } from '@/lib/auth';
 import { db, schema } from '@/lib/db';
 import { countWords, generateSummary, renderMarkdown } from '@/lib/markdown';
 import { globalRatelimit, withRatelimit } from '@/lib/rate-limit';
+import { fireNotify } from '@/lib/notify';
 
 const updatePostSchema = z.object({
   title: z.string().trim().min(1).max(255).optional(),
@@ -177,6 +178,14 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         updateData.publishedAt = existingPost.publishedAt ?? new Date();
         updateData.scheduledAt = null;
         updateData.cancelScheduled = false;
+        // v1.1（PRD 11.9）：首次发布时推送通知
+        if (existingPost.status !== 'published') {
+          const titleForNotify = validatedData.title ?? existingPost.title;
+          fireNotify('post.published', {
+            title: '文章发布成功',
+            summary: `**《${titleForNotify}》** 已发布`,
+          });
+        }
       } else if (validatedData.status === 'scheduled') {
         updateData.publishedAt = null;
         updateData.cancelScheduled = false;

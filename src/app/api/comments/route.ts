@@ -8,6 +8,7 @@ import { withRatelimit, commentRatelimit, globalRatelimit, getClientIP } from '@
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getSiteSettings } from '@/lib/settings';
+import { fireNotify } from '@/lib/notify';
 
 // Validation schemas
 const createCommentSchema = z.object({
@@ -172,6 +173,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 校验评论对象存在；文章还需已发布且允许评论
+    let targetLabel: string;
     if (targetType === 'post') {
       const post = await db.query.posts.findFirst({
         where: eq(schema.posts.id, targetId),
@@ -184,14 +186,16 @@ export async function POST(request: NextRequest) {
       if (!post.allowComment) {
         return NextResponse.json({ error: '该文章已关闭评论' }, { status: 403 });
       }
+      targetLabel = `文章《${post.title}》`;
     } else {
       const moment = await db.query.moments.findFirst({
         where: eq(schema.moments.id, targetId),
-        columns: { id: true },
+        columns: { id: true, content: true },
       });
       if (!moment) {
         return NextResponse.json({ error: 'Moment not found' }, { status: 404 });
       }
+      targetLabel = `动态「${moment.content.slice(0, 30)}」`;
     }
 
     // 处理嵌套回复
@@ -268,6 +272,18 @@ export async function POST(request: NextRequest) {
         status: 'pending', // 默认需要审核
         ipAddress,
       });
+
+    // v1.1（PRD 11.8 / 11.9）：新评论待审核 / 评论被回复 → 邮件 + 飞书（异步、不阻塞）
+    fireNotify(depth > 0 ? 'comment.reply' : 'comment.pending', {
+      title: depth > 0 ? '有新回复待审核' : '有新评论待审核',
+      summary: `**${validatedData.authorName}** 评论了 ${targetLabel}：\n${validatedData.contentMd.slice(0, 80)}`,
+      comment: {
+        authorName: validatedData.authorName,
+        targetLabel,
+        contentSummary: validatedData.contentMd.slice(0, 200),
+        consoleUrl: `${(process.env.SITE_URL || process.env.NEXTAUTH_URL || 'http://localhost:3000').replace(/\/$/, '')}/console/comments`,
+      },
+    });
     // 创建响应不回显邮箱、IP、审核状态或原始 Markdown。
     const newComment = await db.query.comments.findFirst({
       where: eq(schema.comments.id, commentId),
