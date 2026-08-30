@@ -1,5 +1,0 @@
-
-FAIL tests/integration/posts.test.ts
-Test Suites: 1 failed, 1 total
-Tests:       1 failed, 34 passed, 35 total
-

@@ -1,8 +1,0 @@
-
-LineNumber Line
----------- ----
-       137     [DBG] {"tag":"go"} storeLen= 4 filtered= 0 ids= [
-       157     [DBG] {"status":"published","tag":"go"} storeLen= 4 filtered= 0 ids= [
-       283       474 |     const result = await getPosts({ tag: 'go' });
-       288       478 |       expect(post.tags.some((t) => t.slug === 'go')).toBe(true);
-
