@@ -5,10 +5,11 @@
 | 文档信息 | |
 |---------|---|
 | 产品名称 | QzBlog（暂定） |
-| 版本 | v1.0 |
+| 版本 | v1.1 |
 | 创建日期 | 2026-05-10 |
+| 最近修订 | 2026-08-30 |
 | 作者 | 产品经理 |
-| 状态 | 已定稿，可进入开发 |
+| 状态 | v1.0 范围已定稿；v1.1 增补下阶段目标（竞品对标，见第 11 节） |
 
 ---
 
@@ -59,6 +60,20 @@
 | 全站搜索 | 文章与动态全文检索 | P1 |
 | 暗色模式 | 亮色/暗色主题切换，跟随系统 | P1 |
 | 数据统计 | 文章阅读量、访问趋势（仅博主可见） | P2 |
+| 后台路由迁移 | `/admin` → `/console` 统一前缀，旧地址 301（v1.1） | P0 |
+| 分类管理 | 分类实体补齐与后台管理（前台 `/categories` 代码已有）（v1.1） | P0 |
+| 附件库管理 | 附件列表/分组/批量管理，编辑器统一引用；存储支持本地磁盘 + MinIO（v1.1） | P0 |
+| 文章回收站 | 删除进回收站、可恢复（v1.1） | P1 |
+| 评论策略 | 全局启用评论 + 文章级允许评论（v1.1） | P1 |
+| 文章可见性与下架 | 公开/私有可见性、取消发布回草稿（v1.1） | P1 |
+| 动态增强 | Markdown + 多图 + 动态评论（v1.1） | P1 |
+| 邮件与群通知 | SMTP 邮件通知 + 飞书群机器人通知（v1.1） | P1 |
+| SEO 设置 | 屏蔽搜索引擎开关、站点关键词（v1.1） | P2 |
+| 备份与恢复 | 数据库 + 附件整站备份打包/恢复（v1.1） | P2 |
+| 自定义页面管理 | 关于等单页后台可编辑（v1.1） | P2 |
+| 文章版本历史 | 内容快照与回滚（v1.1） | P2 |
+
+> 注：标（v1.1）的条目为下阶段目标，来自竞品「技术云记」对标增补，详细需求见第 11 节，版本批次见第 12 节。
 
 ---
 
@@ -188,6 +203,7 @@
 - 动态发布后即时展示在动态时间线中
 - 博主可删除自己的动态
 - 动态列表按时间倒序排列，支持分页加载
+- **v1.1 增强（见 11.7）：** 内容升级为 Markdown + 多图（≤9 张），并支持读者对动态发表评论
 
 #### 4.2.2 动态展示
 
@@ -312,6 +328,7 @@
 
 - 当有新评论时，博主在管理后台看到未读标记（评论列表页显示未读数量角标）
 - v1.0 不实现邮件通知功能，仅保留后台未读标记
+- **v1.1 增强（见 11.8 / 11.9）：** 升级为 SMTP 邮件通知 + 飞书群机器人通知双通道（可独立开关），后台未读标记保留
 - 博主回复评论后，评论状态自动更新为「已回复」，便于管理
 
 ---
@@ -440,7 +457,7 @@
 
 **认证与授权：**
 - 管理后台采用 NextAuth.js + GitHub OAuth 登录，JWT access_token（15min）+ refresh_token（7d）双 Token 轮换
-- Next.js Middleware 统一拦截 `/admin/*` 和 `/api/admin/*` 路由，未认证请求重定向至登录页
+- Next.js Middleware 统一拦截 `/console/*`（v1.1 由 `/admin/*` 迁移，见 11.1）和 `/api/admin/*` 路由，未认证请求重定向至登录页
 - 不开放注册，管理员账号通过环境变量种子创建
 
 **输入安全：**
@@ -468,7 +485,7 @@
 
 **基础设施安全：**
 - MySQL 端口仅 Docker 内部网络可访问，不暴露至公网
-- 管理后台路径 `/admin` 建议在 Nginx 层增加 IP 白名单或 HTTP Basic Auth 双因子
+- 管理后台路径 `/console`（v1.1 迁移后，见 11.1）建议在 Nginx 层增加 IP 白名单或 HTTP Basic Auth 双因子
 - 定期 `npm audit` + Dependabot 自动依赖更新
 - 环境变量管理：密钥和数据库连接串通过 Docker Compose `.env` 注入，禁止硬编码
 
@@ -528,22 +545,31 @@
 | 项目展示 | `/projects` | 项目卡片网格 |
 | 时间线 | `/timeline` | 里程碑时间轴 |
 | 搜索页 | `/search?q=` | 搜索结果列表 |
+| 分类页 | `/categories` 与 `/categories/{slug}` | 分类列表与按分类筛选文章（v1.1 纳入文档，前台代码已有） |
 | 分类/标签 | `/tags/{tag}` | 按标签筛选文章列表 |
 
 ### 6.2 管理后台（仅博主可访问）
 
+> v1.1 起后台页面路由统一以 `/console` 为前缀（迁移方案见 11.1），旧 `/admin/**` 地址 301 重定向；后端 API `/api/admin/*` 保持不变。
+
 | 页面 | 路径 | 说明 |
 |------|------|------|
-| 仪表盘 | `/admin` | 统计概览面板 |
-| 文章管理 | `/admin/posts` | 文章列表、新建、编辑、删除 |
-| 文章编辑器 | `/admin/posts/new` 与 `/admin/posts/{id}/edit` | Markdown 编辑器 |
-| 动态管理 | `/admin/moments` | 动态发布与管理 |
-| 评论管理 | `/admin/comments` | 评论审核、回复、删除（含未读标记） |
-| 个人资料 | `/admin/profile` | 编辑个人介绍、技能栈、社交链接、工作经历 |
-| 学习路线 | `/admin/learning` | 路线的增删改、节点管理 |
-| 项目管理 | `/admin/projects` | 项目的增删改 |
-| 时间线 | `/admin/timeline` | 里程碑的增删改 |
-| 设置 | `/admin/settings` | 站点名称、Logo、描述、暗色模式默认值、自定义CSS等 |
+| 仪表盘 | `/console` | 统计概览面板 |
+| 后台登录 | `/console/login` | 管理后台登录（GitHub OAuth） |
+| 文章管理 | `/console/posts` | 文章列表、新建、编辑、删除 |
+| 文章编辑器 | `/console/posts/new` 与 `/console/posts/{slug}/edit` | Markdown 编辑器 |
+| 回收站 | `/console/posts/recycle-bin` | 已删文章恢复/彻底删除（v1.1） |
+| 分类管理 | `/console/categories` | 分类增删改、排序、文章计数（v1.1） |
+| 动态管理 | `/console/moments` | 动态发布与管理 |
+| 评论管理 | `/console/comments` | 评论审核、回复、删除（含未读标记） |
+| 附件管理 | `/console/attachments` | 附件库、分组、批量管理（v1.1） |
+| 页面管理 | `/console/pages` | 自定义页面（关于等）后台可编辑（v1.1，P2） |
+| 个人资料 | `/console/profile` | 编辑个人介绍、技能栈、社交链接、工作经历 |
+| 学习路线 | `/console/learning` | 路线的增删改、节点管理 |
+| 项目管理 | `/console/projects` | 项目的增删改 |
+| 时间线 | `/console/timeline` | 里程碑的增删改 |
+| 备份与恢复 | `/console/backup` | 整站备份打包/下载/恢复（v1.1） |
+| 设置 | `/console/settings` | 站点名称、Logo、描述、暗色模式默认值、自定义CSS、SEO 开关、评论策略、SMTP、飞书群通知等（v1.1 扩充） |
 
 ---
 
@@ -560,8 +586,9 @@
 | 认证 | NextAuth.js + GitHub OAuth | 仅博主一人登录，无需邮箱密码体系 |
 | 数据库 | MySQL 8.0 | InnoDB / utf8mb4，时间统一按 UTC 存储，搜索先用 LIKE，后续评估 FULLTEXT + ngram parser |
 | 评论系统 | 自建（MySQL 存储） | 含嵌套回复、后台审核队列 |
+| 通知 | SMTP 邮件（nodemailer）+ 飞书群自定义机器人 Webhook | v1.1 实现，事件可配置，双通道可独立开关（见 11.8 / 11.9） |
 | 搜索 | MySQL LIKE 模糊搜索（后续评估 FULLTEXT + ngram parser） | v1.0 无外部搜索服务依赖 |
-| 图片存储 | MinIO（自建 S3 兼容对象存储） | Docker Compose 独立容器 |
+| 图片存储 | 本地磁盘 `uploads/` + MinIO（自建 S3 兼容对象存储，Docker Compose 独立容器） | 存储策略可配置切换（attachments.storage：local / minio），默认本地；云厂商 OSS 等延后（见 11.3） |
 | 统计 | 自建轻量统计 | v1.2 实现，数据存 MySQL |
 | 语法高亮 | Shiki | SSR 友好，VSCode 同引擎 |
 | Markdown 渲染 | remark + rehype 生态 | GFM + LaTeX + Mermaid |
@@ -906,6 +933,21 @@
 | dark_mode_default | boolean | NOT NULL, DEFAULT false | 暗色模式默认值 |
 | icp备案号 | varchar(100) | | ICP备案号（可选） |
 | custom_css | text | | 自定义CSS（高级配置） |
+| seo_keywords | varchar(500) | | 站点关键词，用于 SEO meta（v1.1） |
+| block_search_engine | boolean | NOT NULL, DEFAULT false | 屏蔽搜索引擎开关，开启时 robots.txt 全站 Disallow + noindex（v1.1） |
+| enable_comments | boolean | NOT NULL, DEFAULT true | 全局评论开关（v1.1 评论策略） |
+| smtp_enabled | boolean | NOT NULL, DEFAULT false | SMTP 邮件通知开关（v1.1） |
+| smtp_host | varchar(200) | | SMTP 服务器地址（v1.1） |
+| smtp_port | int | | SMTP 端口（v1.1） |
+| smtp_user | varchar(200) | | SMTP 用户名（v1.1） |
+| smtp_pass | varchar(500) | | SMTP 密码/授权码，加密存储、界面不明文回显（v1.1） |
+| smtp_from | varchar(200) | | 发信地址（v1.1） |
+| smtp_display_name | varchar(100) | | 发件人显示名称（v1.1） |
+| feishu_enabled | boolean | NOT NULL, DEFAULT false | 飞书群通知开关（v1.1） |
+| feishu_webhook_url | varchar(500) | | 飞书自定义机器人 Webhook 地址（v1.1） |
+| feishu_secret | varchar(500) | | 飞书机器人签名密钥（可选，加密存储）（v1.1） |
+| feishu_events | json | | 订阅的事件类型（新评论/备份结果/文章发布等）（v1.1） |
+| backup_keep_count | int | NOT NULL, DEFAULT 5 | 备份最大保留份数（v1.1） |
 | created_at | datetime(3) | NOT NULL, DEFAULT now() | 创建时间 |
 | updated_at | datetime(3) | NOT NULL, DEFAULT now() | 更新时间 |
 
@@ -1190,6 +1232,54 @@ erDiagram
 - **计数一致性**：`like_count` 使用冗余计数（`posts.like_count` / `moments.like_count`），定时任务或触发器与 `post_likes` / `moment_likes` 实际行数对齐
 - IP 地址在存入前做脱敏处理（IPv4 末段置零 `192.168.1.0`，IPv6 末 80bit 置零），在防重复与隐私保护间取得平衡
 
+### 9.3 v1.1 新增表与字段变更（下阶段，详见第 11 节）
+
+> 以下实体暂未并入 9.2 ER 图，开发时以本节为准并同步补齐 ER 图。
+
+**categories — 分类表（v1.1 新增）**
+
+| 字段名 | 类型 | 约束 | 说明 |
+|--------|------|------|------|
+| id | varchar(36) | PK | 主键 |
+| name | varchar(100) | NOT NULL | 分类名称 |
+| slug | varchar(100) | NOT NULL, UNIQUE | 访问路径（/categories/{slug}） |
+| description | varchar(500) | | 分类描述 |
+| sort_order | int | NOT NULL, DEFAULT 0 | 排序 |
+| created_at / updated_at | datetime(3) | NOT NULL | 时间戳 |
+
+**既有表字段变更（v1.1）**
+
+| 表 | 变更 | 说明 |
+|----|------|------|
+| posts | 新增 category_id FK（NULL） | 单分类归属，NULL 表示未分类；标签多对多体系不变 |
+| posts | 新增 visibility enum('public','private') DEFAULT 'public' | 私有文章仅博主登录态可见（见 11.6） |
+| posts | 新增 allow_comment boolean DEFAULT true | 文章级评论开关（见 11.5） |
+| posts | status 枚举新增 'recycled' | 回收站状态，前台与列表不展示（见 11.4） |
+| comments | post_id 泛化为 target_type enum('post','moment') DEFAULT 'post' + target_id varchar(36) | 支持动态评论；存量数据迁移 target_type='post'、target_id=post_id（见 11.7） |
+| moments | 新增 content_md text、images json | Markdown 内容与多图数组（≤9 张）；content 保留为纯文本摘要（见 11.7） |
+
+**attachments — 附件表（v1.1 新增）**
+
+| 字段名 | 类型 | 约束 | 说明 |
+|--------|------|------|------|
+| id | varchar(36) | PK | 主键 |
+| filename | varchar(255) | NOT NULL | 存储文件名（UUID 重命名） |
+| original_name | varchar(255) | NOT NULL | 原始文件名 |
+| mime_type | varchar(100) | NOT NULL | MIME 类型 |
+| size | bigint | NOT NULL | 文件大小（字节） |
+| group_id | varchar(36) | FK, NULL | 所属分组，NULL 为未分组 |
+| storage | varchar(50) | NOT NULL, DEFAULT 'local' | 存储策略标识：local（本地磁盘）/ minio（自建 S3 兼容对象存储） |
+| uploader_id | varchar(36) | FK | 上传者 |
+| created_at | datetime(3) | NOT NULL | 上传时间 |
+
+**attachment_groups — 附件分组表（v1.1 新增）**：id、display_name、sort_order、created_at
+
+**post_revisions — 文章版本快照表（v1.1 新增，P2）**：id、post_id FK、title、content_md、created_by、created_at；每篇上限 20 条，超出滚动淘汰最旧
+
+**single_pages — 自定义页面表（v1.1 新增，P2）**：id、title、slug UNIQUE、content_md、visible boolean、allow_comment boolean、created_at、updated_at
+
+**backups — 备份记录表（v1.1 新增）**：id、filename、size bigint、type enum('full')、status enum('running','success','failed')、created_at
+
 ---
 
 ## 10. 编辑器边界状态设计
@@ -1439,18 +1529,181 @@ COMMIT;
 
 ---
 
-## 11. 版本规划
+## 11. 下阶段目标（竞品对标增补）
+
+> 本章为 v1.1 修订新增：对竞品「技术云记」（Halo 2.20.13，见《PRD_技术云记博客系统.md》）后台功能实测对标，经取舍确认纳入以下功能。注意本章标题中的「下阶段」指功能批次，实际落地版本以第 12 节版本规划为准。
+
+### 11.1 后台路由迁移：/admin → /console（P0）
+
+**功能描述：** 后台页面路由统一以 `/console` 为前缀，与竞品控制台口径一致，旧地址永久重定向避免失效。
+
+**需求详情：**
+
+- 页面路由映射：`/admin`→`/console`、`/admin/login`→`/console/login`、`/admin/posts`→`/console/posts`、`/admin/posts/new`→`/console/posts/new`、`/admin/posts/{slug}/edit`→`/console/posts/{slug}/edit`、`/admin/moments`→`/console/moments`、`/admin/comments`→`/console/comments`、`/admin/profile|learning|projects|timeline|settings`→`/console/*` 同名迁移
+- 旧地址 `/admin/**` 全部 301 重定向至 `/console/**`，收藏夹与搜索引擎入口不失效
+- Middleware 鉴权范围由 `/admin/*` 调整为 `/console/*`；后端 API `/api/admin/*` **保持不变**，避免前后端连带改动
+- Nginx 层 IP 白名单/Basic Auth 规则同步更新至 `/console`
+
+### 11.2 分类管理（P0）
+
+**功能描述：** 补齐文章分类能力（查漏项：前台 `/categories` 页面代码已有，但文档与数据模型此前缺失分类实体）。
+
+**需求详情：**
+
+- 新增 categories 表（见 9.3），文章归属单分类（可空，空为「未分类」）；标签多对多体系保持不变
+- 后台 `/console/categories`：新建/编辑（名称、别名、描述）、删除、排序；删除前校验分类下文章并提示，确认后文章转为「未分类」
+- 分类列表展示文章计数与访问路径
+- 文章编辑器设置抽屉新增「分类目录」选择；文章列表新增分类筛选
+- 前台 `/categories`、`/categories/{slug}` 纳入 6.1 页面清单；分类页支持文章分页
+
+### 11.3 附件库管理（P0）
+
+**功能描述：** 将上传文件纳入统一附件库管理，编辑器图片引用可复用、可治理。
+
+**需求详情：**
+
+- 后台 `/console/attachments`：列表/网格视图（文件名、类型、大小、分组、上传时间），多选批量删除
+- 上传：多文件与拖拽上传，扩展现有 `/api/upload` 返回附件记录并入库
+- 分组管理：新建/重命名/删除分组，删除分组后附件归入「未分组」
+- 编辑器图片插入支持从附件库选择或直接上传；文章/动态/封面引用统一走附件库
+- 存储策略：本地磁盘 `uploads/` 与 MinIO 双策略并存（`attachments.storage`：local / minio），默认本地，通过配置切换；MinIO 连接信息经环境变量注入（沿用第 5.5 节密钥管理约束），文件命名与分片规则对两种策略一致（UUID 重命名、按日期分片），沿用第 5.5 节文件上传安全约束
+- 删除附件前做引用检查（文章正文/封面/动态），命中时二次确认
+
+### 11.4 文章回收站（P1）
+
+**功能描述：** 文章删除先进回收站，防误删。
+
+**需求详情：**
+
+- `posts.status` 新增 `recycled`；列表「删除」= 移入回收站，前台不可见
+- 后台 `/console/posts/recycle-bin`：回收站列表、关键词搜索、恢复为草稿、彻底删除
+- 彻底删除需二次确认；回收站文章不占用前台路由
+
+### 11.5 评论策略开关（P1）
+
+**功能描述：** 站点级与文章级两级评论控制。
+
+**需求详情：**
+
+- 站点级：设置页「启用评论」总开关，关闭后前台评论区隐藏、评论 API 返回 403
+- 文章级：编辑器设置抽屉「允许评论」开关（posts.allow_comment）
+- 与既有审核流（pending → approved）叠加生效；已发表评论不受开关影响，仅关闭新评论入口
+
+### 11.6 文章可见性与下架（P1）
+
+**功能描述：** 文章支持私有可见性与发布后下架。
+
+**需求详情：**
+
+- 可见性：公开 / 私有（posts.visibility）；私有文章仅博主登录态可访问，读者访问返回 404
+- 下架：已发布文章「取消发布」回草稿态，前台 URL 立即 404
+- 文章列表支持按可见性筛选，列表项展示可见性徽标
+
+### 11.7 动态增强（P1）
+
+**功能描述：** 动态由纯文本升级为富内容，并打通评论。
+
+**需求详情：**
+
+- 内容支持 Markdown 渲染（复用文章渲染与 rehype-sanitize 白名单管线），纯文字仍限 500 字
+- 支持多图（≤9 张），九宫格缩略布局、点击放大浏览
+- 动态支持评论：comments 表泛化 target（post/moment），前台动态页评论区，后台评论管理展示评论对象类型
+- 既有动态点赞能力保留
+
+### 11.8 SMTP 邮件通知（P1）
+
+**功能描述：** 评论事件邮件提醒，替代 v1.0「仅后台未读标记」的单通道。
+
+**需求详情：**
+
+- 设置页配置 SMTP（主机、端口、用户名、授权码、发信地址、显示名称），提供「发送测试邮件」按钮
+- 通知触发：新评论待审核、评论被回复；收件人为博主邮箱
+- 邮件内容：评论者昵称、评论对象（文章/动态）、内容摘要、跳转后台审核/查看链接
+- nodemailer 实现；发送失败记录日志并重试；同事件 1 分钟内聚合限频，防邮件轰炸
+- 后台未读标记保留，与邮件双通道并存
+
+### 11.9 飞书群通知（P1，新增需求）
+
+**功能描述：** 通过飞书群自定义机器人 Webhook，将站点关键事件实时推送至飞书群，作为邮件之外的第二通知通道。
+
+**需求详情：**
+
+- 设置页配置：Webhook 地址、签名密钥（可选）、事件订阅项、总开关
+- 可订阅事件：新评论待审核、备份完成/失败、文章发布成功
+- 消息格式：飞书消息卡片（事件标题 + 摘要 + 时间 + 跳转后台链接）
+- 推送异步执行，失败不阻塞主流程，记录日志并有限重试
+- 与 SMTP 通知相互独立、可分别开关，避免单通道故障漏报
+
+### 11.10 SEO 设置补充（P2）
+
+**功能描述：** 站点 SEO 控制项补齐。
+
+**需求详情：**
+
+- 站点关键词（seo_keywords）：输出至首页 meta keywords 与 Open Graph
+- 「屏蔽搜索引擎」开关：开启后 robots.txt 全站 Disallow + 页面 meta noindex（开发/临时闭站场景）
+- site_description 字段已有，与上述项归入同一设置分组展示
+
+### 11.11 备份与恢复（P2）
+
+**功能描述：** 整站数据备份与恢复，与 5.8 数据导出互补（导出保内容主权，备份保快速恢复）。
+
+**需求详情：**
+
+- 后台 `/console/backup`：创建备份（MySQL dump + 附件数据打包 tar.gz：本地 uploads 目录；MinIO 数据经 `mc` 导出）、备份列表（文件名/大小/时间/状态）、下载、删除
+- 恢复：上传备份包整站恢复，危险操作二次确认，恢复前自动先做当前状态备份
+- 保留策略：最多保留 N 份（默认 5，可配置），超限滚动淘汰最旧
+- 备份完成/失败推送通知（邮件 + 飞书，见 11.8 / 11.9）
+
+### 11.12 自定义页面管理（P2）
+
+**功能描述：** 关于等固定单页内容后台可编辑，无需改代码发版。
+
+**需求详情：**
+
+- single_pages 表 + `/console/pages` 列表与 Markdown 编辑器（复用文章编辑器组件）
+- 固定前台路由（如 `/about`）绑定页面内容渲染；支持可见性开关
+- 页面数量少（<10），不做分组与多模板
+
+### 11.13 文章版本历史（P2）
+
+**功能描述：** 文章内容快照与回滚，兜底误操作。
+
+**需求详情：**
+
+- 保存/发布时生成内容快照（post_revisions），记录标题与 content_md
+- 编辑器「版本历史」面板：版本列表（时间 + 字数变更）、查看快照内容、一键回滚（回滚动作本身生成新快照）
+- 每篇上限 20 条快照，超出滚动淘汰最旧
+
+### 11.14 本期明确不做（舍弃清单）
+
+| 舍弃项 | 理由 |
+|--------|------|
+| 主题管理 / 插件管理 / 应用市场 | 非项目方向，前台为自研固定主题，避免插件机制过度设计 |
+| 开放注册、账号密码登录、忘记密码 | 单博主 + GitHub OAuth（NextAuth）模式，无多用户诉求 |
+| 多角色体系（作者/投稿者/文章管理员） | 单人博客无协作场景 |
+| 2FA / 个人令牌 PAT / 登录设备管理 | 安全增强收益低于成本，暂缓 |
+| 菜单管理、路由前缀自定义设置 | 导航固定渲染即可，可视化配置属过度设计 |
+| 多语言 i18n | 单语言站点 |
+| 站内通知中心 | 单博主场景，评论未读角标 + 邮件/飞书双通道已覆盖 |
+| 代码注入设置 | 本期未选入；第三方统计/脚本诉求由部署层配置覆盖 |
+| 云厂商对象存储（阿里云 OSS / 腾讯 COS） | 延后项：MinIO（自建 S3 兼容）已纳入存储策略，云厂商接入仅需扩展 storage 策略实现，无需迁移数据 |
+
+---
+
+## 12. 版本规划
 
 | 版本 | 范围 | 预计周期 |
 |------|------|---------|
 | v1.0 MVP | 文章系统（含 TOC、代码高亮、草稿、定时发布）、动态发布、个人介绍（含技能栈、社交链接、工作经历）、学习路线、暗色模式、站点设置 | 5-7 周 |
 | v1.1 | 系列文章/专栏、评论系统（含审核）、点赞收藏、全站搜索 | 3-4 周 |
 | v1.2 | 项目展示、时间线、数据统计面板、反垃圾评论策略 | 2-3 周 |
-| v1.3+ | 性能优化、SEO 增强、国际化、更多主题 | 迭代 |
+| v1.3 | 竞品对标增补第一批（见第 11 节）：/console 路由迁移、分类管理、附件库、回收站、评论策略、可见性与下架、动态增强、SMTP/飞书通知、SEO 设置 | 4-5 周 |
+| v1.4 | 竞品对标增补第二批：备份与恢复、自定义页面管理、文章版本历史；性能优化、更多主题 | 迭代 |
 
 ---
 
-## 12. 附录：名词定义
+## 13. 附录：名词定义
 
 | 名词 | 定义 |
 |------|------|
@@ -1459,6 +1712,7 @@ COMMIT;
 | 学习路线 | 结构化的学习节点集合，可视化展示学习路径与进度 |
 | 时间线 | 按时间排列的博主职业/技术成长关键事件 |
 | TOC | Table of Contents，根据文章标题自动生成的目录 |
+| 飞书群通知 | 通过飞书自定义机器人 Webhook 将站点事件推送至指定飞书群的通知方式（v1.1 增补） |
 
 ---
 
