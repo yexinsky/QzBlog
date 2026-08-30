@@ -18,7 +18,7 @@ const OUTPUT_FORMAT = 'webp';
 const OUTPUT_CONTENT_TYPE = 'image/webp';
 const UPLOAD_PATH_PREFIX = 'uploads';
 // 本地磁盘策略的存储根目录（PRD 11.3：本地 uploads/ 与 MinIO 双策略并存）
-const LOCAL_STORAGE_ROOT = path.join(process.cwd(), 'uploads');
+export const LOCAL_STORAGE_ROOT = path.join(process.cwd(), 'uploads');
 
 export type StorageDriver = 'local' | 's3';
 

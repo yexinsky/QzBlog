@@ -9,6 +9,7 @@ import { db, schema } from '@/lib/db';
 import { countWords, generateSlug, generateSummary, renderMarkdown } from '@/lib/markdown';
 import { globalRatelimit, withRatelimit } from '@/lib/rate-limit';
 import { fireNotify } from '@/lib/notify';
+import { createPostRevision } from '@/lib/revisions';
 
 const createPostSchema = z.object({
   title: z.string().trim().min(1).max(255),
@@ -201,6 +202,8 @@ export async function POST(request: NextRequest) {
     });
 
     const newPost = await db.query.posts.findFirst({ where: eq(schema.posts.id, postId) });
+    // v1.1（PRD 11.13）：创建时生成首个内容快照
+    await createPostRevision(postId, validatedData.title, validatedData.contentMd, session.user.id).catch((error) => console.error('Failed to create revision:', error));
     // v1.1（PRD 11.9）：文章发布成功 → 飞书/邮件通知（异步、可订阅）
     if (validatedData.status === 'published') {
       fireNotify('post.published', {

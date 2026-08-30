@@ -1,4 +1,4 @@
-import { desc } from 'drizzle-orm'
+import { desc, eq } from 'drizzle-orm'
 import { Mail, Github, Twitter, ArrowRight } from 'lucide-react'
 import { Header } from '@/components/layout/Header'
 import { Footer } from '@/components/layout/Footer'
@@ -6,10 +6,20 @@ import { Container, Section, PageTitle } from '@/components/layout/Container'
 import { TagCloud } from '@/components/ui/Tag'
 import Link from 'next/link'
 import { db, schema } from '@/lib/db'
+import { renderMarkdown } from '@/lib/markdown'
 
 export const metadata = {
   title: '关于我 - Qzhou Blog',
   description: '关于我、技能与联系方式。',
+}
+
+// v1.1（PRD 11.12）：/about 绑定 slug='about' 的自定义页面内容，后台可编辑、支持可见性开关
+async function getAboutPage() {
+  const page = await db.query.singlePages.findFirst({
+    where: eq(schema.singlePages.slug, 'about'),
+  })
+  if (!page || !page.visible) return null
+  return page
 }
 
 async function getProfile() {
@@ -39,7 +49,8 @@ async function getPopularTags() {
 }
 
 export default async function AboutPage() {
-  const [profile, popularTags] = await Promise.all([getProfile(), getPopularTags()])
+  const [profile, popularTags, aboutPage] = await Promise.all([getProfile(), getPopularTags(), getAboutPage()])
+  const aboutHtml = aboutPage?.contentMd ? await renderMarkdown(aboutPage.contentMd) : null
 
   const socials = [
     { href: 'https://github.com/qzhou', label: 'GitHub', icon: Github },
@@ -59,6 +70,13 @@ export default async function AboutPage() {
               title="关于我"
               description="在路上，不断前行。"
             />
+
+            {aboutHtml && (
+              <article
+                className="prose prose-base max-w-none bg-background-base rounded-card shadow-card p-6 md:p-8 mb-6 [&_a]:text-brand-orange [&_img]:rounded-button"
+                dangerouslySetInnerHTML={{ __html: aboutHtml }}
+              />
+            )}
 
             <article className="bg-background-base rounded-card shadow-card p-6 md:p-8 space-y-6">
               <header className="text-center">

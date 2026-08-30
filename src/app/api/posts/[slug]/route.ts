@@ -9,6 +9,7 @@ import { db, schema } from '@/lib/db';
 import { countWords, generateSummary, renderMarkdown } from '@/lib/markdown';
 import { globalRatelimit, withRatelimit } from '@/lib/rate-limit';
 import { fireNotify } from '@/lib/notify';
+import { createPostRevision } from '@/lib/revisions';
 
 const updatePostSchema = z.object({
   title: z.string().trim().min(1).max(255).optional(),
@@ -207,6 +208,11 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         await tx.update(schema.seriesPosts).set({ sortOrder: validatedData.seriesOrder }).where(eq(schema.seriesPosts.postId, existingPost.id));
       }
     });
+
+    // v1.1（PRD 11.13）：内容变更时生成快照，上限 20 条滚动淘汰
+    if (updateData.contentMd !== undefined && updateData.title !== undefined) {
+      await createPostRevision(existingPost.id, updateData.title, updateData.contentMd, session.user.id).catch((error) => console.error('Failed to create revision:', error));
+    }
 
     const updatedPost = await db.query.posts.findFirst({ where: eq(schema.posts.id, existingPost.id) });
     return NextResponse.json(updatedPost);

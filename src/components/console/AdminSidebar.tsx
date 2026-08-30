@@ -4,7 +4,7 @@ import React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut } from 'next-auth/react'
-import { Home, LayoutDashboard, PenTool, Image, MessageSquare, FolderOpen, Paperclip, Trash2, Settings, User, LogOut } from 'lucide-react'
+import { Home, LayoutDashboard, PenTool, Image, MessageSquare, FolderOpen, Paperclip, Trash2, Settings, FileText, DatabaseBackup, User, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface NavItem { icon: React.ElementType; label: string; href: string; badge?: number }
@@ -16,7 +16,9 @@ const adminNavItems: NavItem[] = [
   { icon: Image, label: '动态管理', href: '/console/moments' },
   { icon: MessageSquare, label: '评论管理', href: '/console/comments' },
   { icon: Paperclip, label: '附件管理', href: '/console/attachments' },
+  { icon: FileText, label: '页面管理', href: '/console/pages' },
   { icon: User, label: '个人资料', href: '/console/profile' },
+  { icon: DatabaseBackup, label: '备份与恢复', href: '/console/backup' },
   { icon: Settings, label: '站点设置', href: '/console/settings' },
 ]
 

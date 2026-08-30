@@ -475,6 +475,63 @@ export const siteSettings = mysqlTable('site_settings', {
 });
 
 // ============================================================================
+// Post Revisions Table - 文章版本快照表（v1.1，PRD 11.13，每篇上限 20 条滚动淘汰）
+// ============================================================================
+export const postRevisions = mysqlTable(
+  'post_revisions',
+  {
+    id: varchar('id', { length: 36 }).primaryKey().$defaultFn(() => randomUUID()),
+    postId: varchar('post_id', { length: 36 })
+      .notNull()
+      .references(() => posts.id, { onDelete: 'cascade' }),
+    title: varchar('title', { length: 255 }).notNull(),
+    contentMd: text('content_md').notNull(),
+    wordCount: int('word_count').notNull().default(0),
+    createdBy: varchar('created_by', { length: 36 }),
+    createdAt: datetime('created_at', { mode: 'date', fsp: 3 }).notNull().default(sql`(CURRENT_TIMESTAMP(3))`),
+  },
+  (table) => ({
+    postIdIdx: index('post_revisions_post_id_idx').on(table.postId, table.createdAt),
+  })
+);
+
+// ============================================================================
+// Single Pages Table - 自定义页面表（v1.1，PRD 11.12）
+// ============================================================================
+export const singlePages = mysqlTable(
+  'single_pages',
+  {
+    id: varchar('id', { length: 36 }).primaryKey().$defaultFn(() => randomUUID()),
+    title: varchar('title', { length: 200 }).notNull(),
+    slug: varchar('slug', { length: 200 }).notNull().unique(),
+    contentMd: text('content_md').notNull(),
+    contentHtml: text('content_html').notNull(),
+    visible: boolean('visible').notNull().default(true),
+    allowComment: boolean('allow_comment').notNull().default(false),
+    createdAt: datetime('created_at', { mode: 'date', fsp: 3 }).notNull().default(sql`(CURRENT_TIMESTAMP(3))`),
+    updatedAt: datetime('updated_at', { mode: 'date', fsp: 3 }).notNull().default(sql`(CURRENT_TIMESTAMP(3))`),
+  },
+  (table) => ({ slugIdx: index('single_pages_slug_idx').on(table.slug) })
+);
+
+// ============================================================================
+// Backups Table - 备份记录表（v1.1，PRD 11.11）
+// ============================================================================
+export const backups = mysqlTable(
+  'backups',
+  {
+    id: varchar('id', { length: 36 }).primaryKey().$defaultFn(() => randomUUID()),
+    filename: varchar('filename', { length: 255 }).notNull(),
+    size: bigint('size', { mode: 'number' }).notNull().default(0),
+    type: mysqlEnum('type', ['full'] as const).notNull().default('full'),
+    status: mysqlEnum('status', ['running', 'success', 'failed'] as const).notNull().default('running'),
+    note: varchar('note', { length: 255 }),
+    createdAt: datetime('created_at', { mode: 'date', fsp: 3 }).notNull().default(sql`(CURRENT_TIMESTAMP(3))`),
+  },
+  (table) => ({ createdAtIdx: index('backups_created_at_idx').on(table.createdAt) })
+);
+
+// ============================================================================
 // Relations
 // ============================================================================
 export const usersRelations = relations(users, ({ many }) => ({
@@ -636,5 +693,11 @@ export type AttachmentGroup = typeof attachmentGroups.$inferSelect;
 export type NewAttachmentGroup = typeof attachmentGroups.$inferInsert;
 export type SiteSettings = typeof siteSettings.$inferSelect;
 export type NewSiteSettings = typeof siteSettings.$inferInsert;
+export type PostRevision = typeof postRevisions.$inferSelect;
+export type NewPostRevision = typeof postRevisions.$inferInsert;
+export type SinglePage = typeof singlePages.$inferSelect;
+export type NewSinglePage = typeof singlePages.$inferInsert;
+export type Backup = typeof backups.$inferSelect;
+export type NewBackup = typeof backups.$inferInsert;
 
 
