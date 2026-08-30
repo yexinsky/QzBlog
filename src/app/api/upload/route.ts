@@ -9,20 +9,31 @@ const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 
 export async function POST(request: NextRequest) {
   try {
-    const ratelimitCheck = await withRatelimit(globalRatelimit)(request);
-    if (!ratelimitCheck.success) return ratelimitCheck.response!;
-
+    // Authenticate before consuming shared rate-limit capacity. This also prevents an
+    // anonymous caller from discovering rate-limit state through this privileged API.
     const session = await getServerSession(authOptions);
-    if (!session?.user || session.user.role !== 'admin') {
+    if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    if (session.user.role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const ratelimitCheck = await withRatelimit(globalRatelimit)(request);
+    if (!ratelimitCheck.success) return ratelimitCheck.response!;
 
     const declaredLength = Number(request.headers.get('content-length'));
     if (Number.isFinite(declaredLength) && declaredLength > MAX_UPLOAD_BYTES + 64 * 1024) {
       return NextResponse.json({ error: 'Upload exceeds 5MB limit' }, { status: 413 });
     }
 
-    const formData = await request.formData();
+    let formData: FormData;
+    try {
+      formData = await request.formData();
+    } catch {
+      // Malformed or empty multipart body is a client error, not a server fault.
+      return NextResponse.json({ error: 'No file provided' }, { status: 400 });
+    }
     const entry = formData.get('file');
     if (!(entry instanceof File)) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
@@ -37,13 +48,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: result.error }, { status: 400 });
     }
 
-    return NextResponse.json(
-      { url: result.url },
-      { headers: { 'Cache-Control': 'no-store' } }
-    );
+    return NextResponse.json({ url: result.url }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     console.error('Error uploading file:', error);
     return NextResponse.json({ error: 'Failed to upload file' }, { status: 500 });
   }
 }
-

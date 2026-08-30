@@ -1,0 +1,51 @@
+PASS tests/integration/posts.test.ts
+  文章创建测试
+    ○ skipped 创建新文章
+    ○ skipped 创建文章时自动生成 slug
+    ○ skipped 创建定时发布文章
+    ○ skipped 创建时计算字数
+  文章读取测试
+    ○ skipped 获取已发布的文章
+    ○ skipped 获取不存在的文章返回 null
+    ○ skipped 按状态筛选文章
+    ○ skipped 分页获取文章
+    ○ skipped 获取草稿列表
+  文章更新测试
+    ○ skipped 更新文章标题
+    ○ skipped 更新文章内容
+    ○ skipped 更新 slug 时保持唯一性
+    ○ skipped 更新时更新时间戳
+    ○ skipped 更新不存在的文章返回 null
+  文章删除测试
+    ○ skipped 删除已存在的文章
+    ○ skipped 删除不存在的文章返回 false
+    ○ skipped 删除文章后相关标签也应清理（外键约束）
+  文章发布与定时发布测试
+    ○ skipped 发布草稿文章
+    ○ skipped 设置定时发布
+    ○ skipped 取消定时发布
+    ○ skipped 定时发布前 5 分钟内可取消
+    ○ skipped 定时发布已过期不可取消（需发布）
+  文章列表与排序测试
+    ○ skipped 置顶文章排在最前
+    ○ skipped 按发布时间降序排列
+  文章异常状态测试
+    ○ skipped 空文章列表返回空数组
+    ○ skipped 获取已删除文章返回 null
+    ○ skipped 分页边界测试
+  文章搜索与筛选测试
+    √ 按标签筛选文章 (2 ms)
+    ○ skipped 组合筛选条件
+    ○ skipped 返回分页元数据
+  分页测试
+    ○ skipped 分页计算正确 (page=1, pageSize=10)
+    ○ skipped 分页计算正确 (page=2, pageSize=10)
+    ○ skipped 分页计算正确 (page=3, pageSize=10)
+    ○ skipped 首页和末页识别
+    ○ skipped 上一页下一页状态
+
+Test Suites: 1 passed, 1 total
+Tests:       34 skipped, 1 passed, 35 total
+Snapshots:   0 total
+Time:        0.955 s, estimated 1 s
+Ran all test suites matching /tests\\integration\\posts.test.ts/i with tests matching "按标签筛选".

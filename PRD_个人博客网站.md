@@ -344,17 +344,17 @@
 
 ### 4.9 全站搜索
 
-**功能描述：** 支持对文章标题、正文内容及动态进行关键词搜索，基于 PostgreSQL 全文检索（tsvector + pg_trgm）实现服务端搜索。
+**功能描述：** 支持对文章标题、正文内容及动态进行关键词搜索，当前先用 MySQL LIKE 实现服务端搜索；正式全文搜索需验证 MySQL FULLTEXT + ngram parser。
 
 **需求详情：**
 
 - 导航栏常驻搜索入口（搜索图标 + 快捷键 `/`）
-- 输入关键词后实时展示搜索建议（文章标题模糊匹配，pg_trgm 相似度）
-- 回车或点击搜索进入搜索结果页，由 PostgreSQL `ts_rank` 计算相关度排序
+- 输入关键词后实时展示搜索建议（文章标题模糊匹配，先用 LIKE 兜底）
+- 回车或点击搜索进入搜索结果页，由应用层排序规则计算相关度，后续再评估 MySQL FULLTEXT
 - 搜索结果每项显示：文章标题、摘要高亮关键词、发布日期、标签
 - 搜索结果分页展示，响应时间 ≤ 500ms
 - 无结果时展示推荐热门文章
-- 索引更新：文章发布/更新时，PostgreSQL 触发器或应用层同步更新 tsvector 列
+- 索引更新：文章发布/更新时，由应用层同步更新搜索字段；后续如启用 FULLTEXT 再评估索引刷新策略
 
 **搜索框展开状态示意：**
 
@@ -467,7 +467,7 @@
 - 存储路径按日期分片，防目录遍历
 
 **基础设施安全：**
-- PostgreSQL 端口仅 Docker 内部网络可访问，不暴露至公网
+- MySQL 端口仅 Docker 内部网络可访问，不暴露至公网
 - 管理后台路径 `/admin` 建议在 Nginx 层增加 IP 白名单或 HTTP Basic Auth 双因子
 - 定期 `npm audit` + Dependabot 自动依赖更新
 - 环境变量管理：密钥和数据库连接串通过 Docker Compose `.env` 注入，禁止硬编码
@@ -556,13 +556,13 @@
 | 框架 | Next.js（SSR + ISR） | App Router，全栈 TypeScript |
 | 后端语言 | Node.js / TypeScript（Next.js API Routes） | 不外接独立后端服务，BFF 层直连数据库 |
 | 样式 | Tailwind CSS | 配合设计规范中的色彩体系 |
-| 内容管理 | 在线 Markdown 编辑器（CodeMirror 6） | 文章全部存储至 PostgreSQL |
+| 内容管理 | 在线 Markdown 编辑器（CodeMirror 6） | 文章全部存储至 MySQL |
 | 认证 | NextAuth.js + GitHub OAuth | 仅博主一人登录，无需邮箱密码体系 |
-| 数据库 | PostgreSQL 16 | 含 pg_trgm + tsvector 全文检索扩展 |
-| 评论系统 | 自建（PostgreSQL 存储） | 含嵌套回复、后台审核队列 |
-| 搜索 | PostgreSQL 全文检索（tsvector + pg_trgm） | v1.0 无外部搜索服务依赖 |
+| 数据库 | MySQL 8.0 | InnoDB / utf8mb4，时间统一按 UTC 存储，搜索先用 LIKE，后续评估 FULLTEXT + ngram parser |
+| 评论系统 | 自建（MySQL 存储） | 含嵌套回复、后台审核队列 |
+| 搜索 | MySQL LIKE 模糊搜索（后续评估 FULLTEXT + ngram parser） | v1.0 无外部搜索服务依赖 |
 | 图片存储 | MinIO（自建 S3 兼容对象存储） | Docker Compose 独立容器 |
-| 统计 | 自建轻量统计 | v1.2 实现，数据存 PostgreSQL |
+| 统计 | 自建轻量统计 | v1.2 实现，数据存 MySQL |
 | 语法高亮 | Shiki | SSR 友好，VSCode 同引擎 |
 | Markdown 渲染 | remark + rehype 生态 | GFM + LaTeX + Mermaid |
 | 部署 | 公司自有服务器 + Docker Compose | Nginx/Caddy 反向代理 |
@@ -652,22 +652,22 @@
 
 | 字段名 | 类型 | 约束 | 说明 |
 |--------|------|------|------|
-| id | uuid | PK, DEFAULT gen_random_uuid() | 主键 |
+| id | varchar(36) | PK, DEFAULT 应用层 crypto.randomUUID() | 主键 |
 | username | varchar(50) | NOT NULL, UNIQUE | 用户名，展示用 |
 | email | varchar(255) | NOT NULL, UNIQUE | 邮箱，用于找回密码等 |
 | github_id | varchar(100) | UNIQUE | GitHub OAuth ID，关联登录 |
 | avatar_url | varchar(500) | | 头像URL |
 | role | varchar(20) | NOT NULL, DEFAULT 'admin' | 角色，预留扩展（admin/editor） |
 | bio | text | | 个人简介 |
-| created_at | timestamptz | NOT NULL, DEFAULT now() | 创建时间 |
-| updated_at | timestamptz | NOT NULL, DEFAULT now() | 更新时间 |
+| created_at | datetime(3) | NOT NULL, DEFAULT now() | 创建时间 |
+| updated_at | datetime(3) | NOT NULL, DEFAULT now() | 更新时间 |
 
 #### 9.1.2 posts — 文章表
 
 | 字段名 | 类型 | 约束 | 说明 |
 |--------|------|------|------|
-| id | uuid | PK, DEFAULT gen_random_uuid() | 主键 |
-| author_id | uuid | NOT NULL, FK -> users.id | 作者ID |
+| id | varchar(36) | PK, DEFAULT 应用层 crypto.randomUUID() | 主键 |
+| author_id | varchar(36) | NOT NULL, FK -> users.id | 作者ID |
 | title | varchar(255) | NOT NULL | 文章标题 |
 | slug | varchar(255) | NOT NULL, UNIQUE | URL友好标识，全站唯一 |
 | content_md | text | NOT NULL | Markdown 原始内容 |
@@ -679,62 +679,62 @@
 | word_count | int | NOT NULL, DEFAULT 0 | 正文字数 |
 | like_count | int | NOT NULL, DEFAULT 0 | 点赞数（冗余计数） |
 | view_count | int | NOT NULL, DEFAULT 0 | 阅读量（冗余计数） |
-| scheduled_at | timestamptz | | 定时发布时间（status=scheduled时必填） |
-| published_at | timestamptz | | 实际发布时间 |
+| scheduled_at | datetime(3) | | 定时发布时间（status=scheduled时必填） |
+| published_at | datetime(3) | | 实际发布时间 |
 | cancel_scheduled | boolean | NOT NULL, DEFAULT false | 是否已取消定时发布 |
-| created_at | timestamptz | NOT NULL, DEFAULT now() | 创建时间 |
-| updated_at | timestamptz | NOT NULL, DEFAULT now() | 更新时间 |
+| created_at | datetime(3) | NOT NULL, DEFAULT now() | 创建时间 |
+| updated_at | datetime(3) | NOT NULL, DEFAULT now() | 更新时间 |
 
 #### 9.1.3 tags — 标签表
 
 | 字段名 | 类型 | 约束 | 说明 |
 |--------|------|------|------|
-| id | uuid | PK, DEFAULT gen_random_uuid() | 主键 |
+| id | varchar(36) | PK, DEFAULT 应用层 crypto.randomUUID() | 主键 |
 | name | varchar(50) | NOT NULL, UNIQUE | 标签名称 |
 | slug | varchar(100) | NOT NULL, UNIQUE | 标签URL标识 |
 | color | varchar(7) | | 展示颜色（十六进制） |
-| created_at | timestamptz | NOT NULL, DEFAULT now() | 创建时间 |
+| created_at | datetime(3) | NOT NULL, DEFAULT now() | 创建时间 |
 
 #### 9.1.4 post_tags — 文章与标签关联表
 
 | 字段名 | 类型 | 约束 | 说明 |
 |--------|------|------|------|
-| post_id | uuid | NOT NULL, FK -> posts.id ON DELETE CASCADE | 文章ID |
-| tag_id | uuid | NOT NULL, FK -> tags.id ON DELETE CASCADE | 标签ID |
+| post_id | varchar(36) | NOT NULL, FK -> posts.id ON DELETE CASCADE | 文章ID |
+| tag_id | varchar(36) | NOT NULL, FK -> tags.id ON DELETE CASCADE | 标签ID |
 | | | PK (post_id, tag_id) | 联合主键 |
 
 #### 9.1.5 series — 系列表
 
 | 字段名 | 类型 | 约束 | 说明 |
 |--------|------|------|------|
-| id | uuid | PK, DEFAULT gen_random_uuid() | 主键 |
+| id | varchar(36) | PK, DEFAULT 应用层 crypto.randomUUID() | 主键 |
 | title | varchar(200) | NOT NULL | 系列名称 |
 | slug | varchar(255) | NOT NULL, UNIQUE | 系列URL标识 |
 | description | text | | 系列简介 |
 | cover_image | varchar(500) | | 封面图URL |
 | is_pinned | boolean | NOT NULL, DEFAULT false | 是否置顶 |
 | sort_order | int | NOT NULL, DEFAULT 0 | 系列间排序 |
-| created_at | timestamptz | NOT NULL, DEFAULT now() | 创建时间 |
-| updated_at | timestamptz | NOT NULL, DEFAULT now() | 更新时间 |
+| created_at | datetime(3) | NOT NULL, DEFAULT now() | 创建时间 |
+| updated_at | datetime(3) | NOT NULL, DEFAULT now() | 更新时间 |
 
 #### 9.1.6 series_posts — 系列文章关联表
 
 | 字段名 | 类型 | 约束 | 说明 |
 |--------|------|------|------|
-| id | uuid | PK, DEFAULT gen_random_uuid() | 主键 |
-| series_id | uuid | NOT NULL, FK -> series.id ON DELETE CASCADE | 系列ID |
-| post_id | uuid | NOT NULL, UNIQUE, FK -> posts.id ON DELETE CASCADE | 文章ID（一篇文章仅属于一个系列） |
+| id | varchar(36) | PK, DEFAULT 应用层 crypto.randomUUID() | 主键 |
+| series_id | varchar(36) | NOT NULL, FK -> series.id ON DELETE CASCADE | 系列ID |
+| post_id | varchar(36) | NOT NULL, UNIQUE, FK -> posts.id ON DELETE CASCADE | 文章ID（一篇文章仅属于一个系列） |
 | sort_order | int | NOT NULL, DEFAULT 0 | 文章在系列内的序号 |
-| created_at | timestamptz | NOT NULL, DEFAULT now() | 创建时间 |
+| created_at | datetime(3) | NOT NULL, DEFAULT now() | 创建时间 |
 
 #### 9.1.7 comments — 评论表
 
 | 字段名 | 类型 | 约束 | 说明 |
 |--------|------|------|------|
-| id | uuid | PK, DEFAULT gen_random_uuid() | 主键 |
-| post_id | uuid | NOT NULL, FK -> posts.id ON DELETE CASCADE | 所属文章ID |
-| parent_id | uuid | FK -> comments.id ON DELETE CASCADE | 父评论ID（支持2层嵌套） |
-| root_id | uuid | FK -> comments.id ON DELETE CASCADE | 根评论ID（便于按线程查询） |
+| id | varchar(36) | PK, DEFAULT 应用层 crypto.randomUUID() | 主键 |
+| post_id | varchar(36) | NOT NULL, FK -> posts.id ON DELETE CASCADE | 所属文章ID |
+| parent_id | varchar(36) | FK -> comments.id ON DELETE CASCADE | 父评论ID（支持2层嵌套） |
+| root_id | varchar(36) | FK -> comments.id ON DELETE CASCADE | 根评论ID（便于按线程查询） |
 | depth | int | NOT NULL, DEFAULT 0, CHECK(depth BETWEEN 0 AND 1) | 嵌套层级（0=根评论, 1=对根评论的回复, 不允许更深） |
 | author_name | varchar(100) | NOT NULL | 评论者昵称 |
 | author_email | varchar(255) | NOT NULL | 评论者邮箱（用于Gravatar，不公开显示） |
@@ -743,61 +743,63 @@
 | status | varchar(20) | NOT NULL, DEFAULT 'pending', CHECK(status IN ('pending','approved','rejected')) | 审核状态 |
 | is_pinned | boolean | NOT NULL, DEFAULT false | 是否博主置顶 |
 | ip_address | varchar(45) | | 评论者IP，用于频率限制 |
-| created_at | timestamptz | NOT NULL, DEFAULT now() | 创建时间 |
+| created_at | datetime(3) | NOT NULL, DEFAULT now() | 创建时间 |
 
 #### 9.1.8 moments — 动态表
 
 | 字段名 | 类型 | 约束 | 说明 |
 |--------|------|------|------|
-| id | uuid | PK, DEFAULT gen_random_uuid() | 主键 |
+| id | varchar(36) | PK, DEFAULT 应用层 crypto.randomUUID() | 主键 |
 | content | varchar(500) | NOT NULL | 动态内容（上限500字） |
 | image_url | varchar(500) | | 单张图片URL |
 | like_count | int | NOT NULL, DEFAULT 0 | 点赞数（冗余计数） |
-| published_at | timestamptz | NOT NULL, DEFAULT now() | 发布时间 |
-| created_at | timestamptz | NOT NULL, DEFAULT now() | 创建时间 |
+| published_at | datetime(3) | NOT NULL, DEFAULT now() | 发布时间 |
+| created_at | datetime(3) | NOT NULL, DEFAULT now() | 创建时间 |
 
 #### 9.1.9 moment_likes — 动态点赞表
 
 | 字段名 | 类型 | 约束 | 说明 |
 |--------|------|------|------|
-| id | uuid | PK, DEFAULT gen_random_uuid() | 主键 |
-| moment_id | uuid | NOT NULL, FK -> moments.id ON DELETE CASCADE | 动态ID |
+| id | varchar(36) | PK, DEFAULT 应用层 crypto.randomUUID() | 主键 |
+| moment_id | varchar(36) | NOT NULL, FK -> moments.id ON DELETE CASCADE | 动态ID |
 | ip_address | varchar(45) | NOT NULL | 点赞者IP |
-| created_at | timestamptz | NOT NULL, DEFAULT now() | 点赞时间 |
-| | | UNIQUE (moment_id, ip_address, date(created_at)) | 同IP每天仅能点赞一次 |
+| like_date | date | NOT NULL, DEFAULT CURRENT_DATE | UTC 点赞日期 |
+| created_at | datetime(3) | NOT NULL, DEFAULT now() | 点赞时间 |
+| | | UNIQUE (moment_id, ip_address, like_date) | 同IP每天仅能点赞一次 |
 
 #### 9.1.10 post_likes — 文章点赞表
 
 | 字段名 | 类型 | 约束 | 说明 |
 |--------|------|------|------|
-| id | uuid | PK, DEFAULT gen_random_uuid() | 主键 |
-| post_id | uuid | NOT NULL, FK -> posts.id ON DELETE CASCADE | 文章ID |
+| id | varchar(36) | PK, DEFAULT 应用层 crypto.randomUUID() | 主键 |
+| post_id | varchar(36) | NOT NULL, FK -> posts.id ON DELETE CASCADE | 文章ID |
 | ip_address | varchar(45) | NOT NULL | 点赞者IP |
-| created_at | timestamptz | NOT NULL, DEFAULT now() | 点赞时间 |
-| | | UNIQUE (post_id, ip_address, date(created_at)) | 同IP每天仅能点赞一次 |
+| like_date | date | NOT NULL, DEFAULT CURRENT_DATE | UTC 点赞日期 |
+| created_at | datetime(3) | NOT NULL, DEFAULT now() | 点赞时间 |
+| | | UNIQUE (post_id, ip_address, like_date) | 同IP每天仅能点赞一次 |
 
 #### 9.1.11 projects — 项目展示表
 
 | 字段名 | 类型 | 约束 | 说明 |
 |--------|------|------|------|
-| id | uuid | PK, DEFAULT gen_random_uuid() | 主键 |
+| id | varchar(36) | PK, DEFAULT 应用层 crypto.randomUUID() | 主键 |
 | name | varchar(200) | NOT NULL | 项目名称 |
 | description | text | | 项目简介 |
-| tech_stack | jsonb | NOT NULL, DEFAULT '[]' | 技术栈标签数组，如 ["Go","React"] |
+| tech_stack | json | NOT NULL, DEFAULT '[]' | 技术栈标签数组，如 ["Go","React"] |
 | cover_image | varchar(500) | | 项目截图/Logo URL |
 | github_url | varchar(500) | | GitHub仓库链接 |
 | demo_url | varchar(500) | | 在线演示链接 |
 | star_count | int | DEFAULT 0 | Star数 |
 | is_featured | boolean | NOT NULL, DEFAULT false | 是否精选/置顶 |
 | sort_order | int | NOT NULL, DEFAULT 0 | 排序序号 |
-| created_at | timestamptz | NOT NULL, DEFAULT now() | 创建时间 |
-| updated_at | timestamptz | NOT NULL, DEFAULT now() | 更新时间 |
+| created_at | datetime(3) | NOT NULL, DEFAULT now() | 创建时间 |
+| updated_at | datetime(3) | NOT NULL, DEFAULT now() | 更新时间 |
 
 #### 9.1.12 milestones — 里程碑时间线表
 
 | 字段名 | 类型 | 约束 | 说明 |
 |--------|------|------|------|
-| id | uuid | PK, DEFAULT gen_random_uuid() | 主键 |
+| id | varchar(36) | PK, DEFAULT 应用层 crypto.randomUUID() | 主键 |
 | title | varchar(200) | NOT NULL | 事件标题 |
 | description | text | | 详细描述 |
 | event_date | date | NOT NULL | 事件发生日期（精确到日） |
@@ -805,28 +807,28 @@
 | icon | varchar(50) | | 时间轴图标标识 |
 | sort_order | int | NOT NULL, DEFAULT 0 | 排序（同一天内区分先后） |
 | is_public | boolean | NOT NULL, DEFAULT true | 是否对外展示 |
-| created_at | timestamptz | NOT NULL, DEFAULT now() | 创建时间 |
-| updated_at | timestamptz | NOT NULL, DEFAULT now() | 更新时间 |
+| created_at | datetime(3) | NOT NULL, DEFAULT now() | 创建时间 |
+| updated_at | datetime(3) | NOT NULL, DEFAULT now() | 更新时间 |
 
 #### 9.1.13 page_views — 访问统计原始数据表
 
 | 字段名 | 类型 | 约束 | 说明 |
 |--------|------|------|------|
-| id | bigserial | PK | 主键（自增，高频写入） |
+| id | bigint AUTO_INCREMENT | PK | 主键（自增，高频写入） |
 | page_type | varchar(50) | NOT NULL | 页面类型（post / moment / home / about 等） |
-| page_id | uuid | | 关联目标ID（文章/动态ID等，首页/about页为NULL） |
+| page_id | varchar(36) | | 关联目标ID（文章/动态ID等，首页/about页为NULL） |
 | visitor_ip | varchar(45) | | 访客IP（脱敏存储最后一段为0） |
 | user_agent | varchar(500) | | User-Agent简略信息 |
 | referrer | varchar(500) | | 来源URL |
 | referrer_type | varchar(20) | | 来源分类（direct / search / social / link / unknown） |
 | country | varchar(100) | | IP属地（可选，GeoIP解析） |
-| visited_at | timestamptz | NOT NULL, DEFAULT now() | 访问时间 |
+| visited_at | datetime(3) | NOT NULL, DEFAULT now() | 访问时间 |
 
 #### 9.1.14 learning_routes — 学习路线表
 
 | 字段名 | 类型 | 约束 | 说明 |
 |--------|------|------|------|
-| id | uuid | PK, DEFAULT gen_random_uuid() | 主键 |
+| id | varchar(36) | PK, DEFAULT 应用层 crypto.randomUUID() | 主键 |
 | title | varchar(200) | NOT NULL | 路线名称 |
 | slug | varchar(255) | NOT NULL, UNIQUE | 路线URL标识 |
 | description | text | | 路线简介 |
@@ -834,67 +836,67 @@
 | learning_goal | text | | 学习目标说明 |
 | sort_order | int | NOT NULL, DEFAULT 0 | 路线间排序 |
 | is_public | boolean | NOT NULL, DEFAULT true | 是否对外展示 |
-| created_at | timestamptz | NOT NULL, DEFAULT now() | 创建时间 |
-| updated_at | timestamptz | NOT NULL, DEFAULT now() | 更新时间 |
+| created_at | datetime(3) | NOT NULL, DEFAULT now() | 创建时间 |
+| updated_at | datetime(3) | NOT NULL, DEFAULT now() | 更新时间 |
 
 #### 9.1.15 learning_nodes — 学习路线节点表
 
 | 字段名 | 类型 | 约束 | 说明 |
 |--------|------|------|------|
-| id | uuid | PK, DEFAULT gen_random_uuid() | 主键 |
-| route_id | uuid | NOT NULL, FK -> learning_routes.id ON DELETE CASCADE | 所属路线ID |
-| parent_id | uuid | FK -> learning_nodes.id ON DELETE CASCADE | 父节点ID（支持多级结构） |
+| id | varchar(36) | PK, DEFAULT 应用层 crypto.randomUUID() | 主键 |
+| route_id | varchar(36) | NOT NULL, FK -> learning_routes.id ON DELETE CASCADE | 所属路线ID |
+| parent_id | varchar(36) | FK -> learning_nodes.id ON DELETE CASCADE | 父节点ID（支持多级结构） |
 | title | varchar(200) | NOT NULL | 节点标题 |
 | description | text | | 节点简要说明 |
 | status | varchar(20) | NOT NULL, DEFAULT 'planned', CHECK(status IN ('learning','completed','planned')) | 节点状态 |
-| post_id | uuid | FK -> posts.id ON DELETE SET NULL | 关联文章ID（可选） |
+| post_id | varchar(36) | FK -> posts.id ON DELETE SET NULL | 关联文章ID（可选） |
 | sort_order | int | NOT NULL, DEFAULT 0 | 节点排序 |
-| created_at | timestamptz | NOT NULL, DEFAULT now() | 创建时间 |
-| updated_at | timestamptz | NOT NULL, DEFAULT now() | 更新时间 |
+| created_at | datetime(3) | NOT NULL, DEFAULT now() | 创建时间 |
+| updated_at | datetime(3) | NOT NULL, DEFAULT now() | 更新时间 |
 
 #### 9.1.16 skills — 技能栈表
 
 | 字段名 | 类型 | 约束 | 说明 |
 |--------|------|------|------|
-| id | uuid | PK, DEFAULT gen_random_uuid() | 主键 |
+| id | varchar(36) | PK, DEFAULT 应用层 crypto.randomUUID() | 主键 |
 | name | varchar(50) | NOT NULL, UNIQUE | 技能名称（如 Go、React） |
 | icon | varchar(500) | | 技能图标URL（可选） |
 | color | varchar(7) | | 展示颜色（十六进制） |
 | category | varchar(50) | | 技能分类（如 后端、前端、DevOps） |
 | proficiency | int | DEFAULT 0, CHECK(proficiency BETWEEN 0 AND 100) | 熟练度百分比（0-100） |
 | sort_order | int | NOT NULL, DEFAULT 0 | 排序序号 |
-| created_at | timestamptz | NOT NULL, DEFAULT now() | 创建时间 |
+| created_at | datetime(3) | NOT NULL, DEFAULT now() | 创建时间 |
 
 #### 9.1.17 social_links — 社交链接表
 
 | 字段名 | 类型 | 约束 | 说明 |
 |--------|------|------|------|
-| id | uuid | PK, DEFAULT gen_random_uuid() | 主键 |
+| id | varchar(36) | PK, DEFAULT 应用层 crypto.randomUUID() | 主键 |
 | platform | varchar(50) | NOT NULL | 平台名称（GitHub、Twitter、掘金、LinkedIn等） |
 | url | varchar(500) | NOT NULL | 链接地址（强制 https:// 开头） |
 | icon | varchar(500) | | 图标URL或图标类名 |
 | sort_order | int | NOT NULL, DEFAULT 0 | 排序序号 |
 | is_visible | boolean | NOT NULL, DEFAULT true | 是否展示 |
-| created_at | timestamptz | NOT NULL, DEFAULT now() | 创建时间 |
+| created_at | datetime(3) | NOT NULL, DEFAULT now() | 创建时间 |
 
 #### 9.1.18 work_experience — 工作经历表
 
 | 字段名 | 类型 | 约束 | 说明 |
 |--------|------|------|------|
-| id | uuid | PK, DEFAULT gen_random_uuid() | 主键 |
+| id | varchar(36) | PK, DEFAULT 应用层 crypto.randomUUID() | 主键 |
 | company | varchar(200) | NOT NULL | 公司名称 |
 | position | varchar(200) | NOT NULL | 职位名称 |
 | start_date | date | NOT NULL | 入职日期 |
 | end_date | date | | 离职日期（NULL 表示至今） |
 | description | text | | 工作描述 |
 | sort_order | int | NOT NULL, DEFAULT 0 | 排序序号（按时间倒序） |
-| created_at | timestamptz | NOT NULL, DEFAULT now() | 创建时间 |
+| created_at | datetime(3) | NOT NULL, DEFAULT now() | 创建时间 |
 
 #### 9.1.19 site_settings — 站点设置表
 
 | 字段名 | 类型 | 约束 | 说明 |
 |--------|------|------|------|
-| id | uuid | PK, DEFAULT gen_random_uuid() | 主键 |
+| id | varchar(36) | PK, DEFAULT 应用层 crypto.randomUUID() | 主键 |
 | site_name | varchar(100) | NOT NULL, DEFAULT 'QzBlog' | 站点名称 |
 | site_description | varchar(500) | | 站点描述（用于 SEO） |
 | site_logo | varchar(500) | | 站点Logo URL |
@@ -904,8 +906,8 @@
 | dark_mode_default | boolean | NOT NULL, DEFAULT false | 暗色模式默认值 |
 | icp备案号 | varchar(100) | | ICP备案号（可选） |
 | custom_css | text | | 自定义CSS（高级配置） |
-| created_at | timestamptz | NOT NULL, DEFAULT now() | 创建时间 |
-| updated_at | timestamptz | NOT NULL, DEFAULT now() | 更新时间 |
+| created_at | datetime(3) | NOT NULL, DEFAULT now() | 创建时间 |
+| updated_at | datetime(3) | NOT NULL, DEFAULT now() | 更新时间 |
 
 ### 9.2 实体关系图（ER Diagram）
 
@@ -915,15 +917,15 @@ erDiagram
     posts ||--o{ learning_nodes : "被关联"
     learning_routes ||--o{ learning_nodes : "包含"
     users {
-        uuid id PK
+        varchar(36) id PK
         varchar username UNIQUE
         varchar email UNIQUE
         varchar github_id UNIQUE
         varchar avatar_url
         varchar role
         text bio
-        timestamptz created_at
-        timestamptz updated_at
+        datetime(3) created_at
+        datetime(3) updated_at
     }
 
     posts ||--o{ post_tags : "包含"
@@ -932,8 +934,8 @@ erDiagram
     posts ||--o{ series_posts : "属于"
     posts ||--o{ page_views : "被访问"
     posts {
-        uuid id PK
-        uuid author_id FK
+        varchar(36) id PK
+        varchar(36) author_id FK
         varchar title
         varchar slug UNIQUE
         text content_md
@@ -945,54 +947,54 @@ erDiagram
         int word_count
         int like_count
         int view_count
-        timestamptz scheduled_at
-        timestamptz published_at
+        datetime(3) scheduled_at
+        datetime(3) published_at
         boolean cancel_scheduled
-        timestamptz created_at
-        timestamptz updated_at
+        datetime(3) created_at
+        datetime(3) updated_at
     }
 
     tags ||--o{ post_tags : "被关联"
     tags {
-        uuid id PK
+        varchar(36) id PK
         varchar name UNIQUE
         varchar slug UNIQUE
         varchar color
-        timestamptz created_at
+        datetime(3) created_at
     }
 
     post_tags {
-        uuid post_id FK
-        uuid tag_id FK
+        varchar(36) post_id FK
+        varchar(36) tag_id FK
     }
 
     series ||--o{ series_posts : "包含"
     series {
-        uuid id PK
+        varchar(36) id PK
         varchar title
         varchar slug UNIQUE
         text description
         varchar cover_image
         boolean is_pinned
         int sort_order
-        timestamptz created_at
-        timestamptz updated_at
+        datetime(3) created_at
+        datetime(3) updated_at
     }
 
     series_posts {
-        uuid id PK
-        uuid series_id FK
-        uuid post_id FK UNIQUE
+        varchar(36) id PK
+        varchar(36) series_id FK
+        varchar(36) post_id FK UNIQUE
         int sort_order
-        timestamptz created_at
+        datetime(3) created_at
     }
 
     comments ||--o{ comments : "父引用(parent_id)"
     comments {
-        uuid id PK
-        uuid post_id FK
-        uuid parent_id FK
-        uuid root_id FK
+        varchar(36) id PK
+        varchar(36) post_id FK
+        varchar(36) parent_id FK
+        varchar(36) root_id FK
         int depth
         varchar author_name
         varchar author_email
@@ -1001,51 +1003,51 @@ erDiagram
         varchar status
         boolean is_pinned
         varchar ip_address
-        timestamptz created_at
+        datetime(3) created_at
     }
 
     moments ||--o{ moment_likes : "被点赞"
     moments ||--o{ page_views : "被访问"
     moments {
-        uuid id PK
+        varchar(36) id PK
         varchar content
         varchar image_url
         int like_count
-        timestamptz published_at
-        timestamptz created_at
+        datetime(3) published_at
+        datetime(3) created_at
     }
 
     moment_likes {
-        uuid id PK
-        uuid moment_id FK
+        varchar(36) id PK
+        varchar(36) moment_id FK
         varchar ip_address
-        timestamptz created_at
+        datetime(3) created_at
     }
 
     post_likes {
-        uuid id PK
-        uuid post_id FK
+        varchar(36) id PK
+        varchar(36) post_id FK
         varchar ip_address
-        timestamptz created_at
+        datetime(3) created_at
     }
 
     projects {
-        uuid id PK
+        varchar(36) id PK
         varchar name
         text description
-        jsonb tech_stack
+        json tech_stack
         varchar cover_image
         varchar github_url
         varchar demo_url
         int star_count
         boolean is_featured
         int sort_order
-        timestamptz created_at
-        timestamptz updated_at
+        datetime(3) created_at
+        datetime(3) updated_at
     }
 
     milestones {
-        uuid id PK
+        varchar(36) id PK
         varchar title
         text description
         date event_date
@@ -1053,25 +1055,25 @@ erDiagram
         varchar icon
         int sort_order
         boolean is_public
-        timestamptz created_at
-        timestamptz updated_at
+        datetime(3) created_at
+        datetime(3) updated_at
     }
 
     page_views {
-        bigserial id PK
+        bigint AUTO_INCREMENT id PK
         varchar page_type
-        uuid page_id
+        varchar(36) page_id
         varchar visitor_ip
         varchar user_agent
         varchar referrer
         varchar referrer_type
         varchar country
-        timestamptz visited_at
+        datetime(3) visited_at
     }
 
     learning_routes ||--o{ learning_nodes : "包含"
     learning_routes {
-        uuid id PK
+        varchar(36) id PK
         varchar title
         varchar slug UNIQUE
         text description
@@ -1079,58 +1081,58 @@ erDiagram
         text learning_goal
         int sort_order
         boolean is_public
-        timestamptz created_at
-        timestamptz updated_at
+        datetime(3) created_at
+        datetime(3) updated_at
     }
 
     learning_nodes ||--o{ learning_nodes : "父子关系"
     learning_nodes {
-        uuid id PK
-        uuid route_id FK
-        uuid parent_id FK
+        varchar(36) id PK
+        varchar(36) route_id FK
+        varchar(36) parent_id FK
         varchar title
         text description
         varchar status
-        uuid post_id FK
+        varchar(36) post_id FK
         int sort_order
-        timestamptz created_at
-        timestamptz updated_at
+        datetime(3) created_at
+        datetime(3) updated_at
     }
 
     skills {
-        uuid id PK
+        varchar(36) id PK
         varchar name UNIQUE
         varchar icon
         varchar color
         varchar category
         int proficiency
         int sort_order
-        timestamptz created_at
+        datetime(3) created_at
     }
 
     social_links {
-        uuid id PK
+        varchar(36) id PK
         varchar platform
         varchar url
         varchar icon
         int sort_order
         boolean is_visible
-        timestamptz created_at
+        datetime(3) created_at
     }
 
     work_experience {
-        uuid id PK
+        varchar(36) id PK
         varchar company
         varchar position
         date start_date
         date end_date
         text description
         int sort_order
-        timestamptz created_at
+        datetime(3) created_at
     }
 
     site_settings {
-        uuid id PK
+        varchar(36) id PK
         varchar site_name
         varchar site_description
         varchar site_logo
@@ -1140,8 +1142,8 @@ erDiagram
         boolean dark_mode_default
         varchar icp备案号
         text custom_css
-        timestamptz created_at
-        timestamptz updated_at
+        datetime(3) created_at
+        datetime(3) updated_at
     }
 ```
 
@@ -1183,8 +1185,8 @@ erDiagram
 - 优势：配置集中管理，查询简单，避免配置分散
 - `custom_css` 字段支持博主自定义样式，满足个性化需求（高级功能）
 - 初始化时通过种子脚本创建默认配置行
-- 采用 **UNIQUE (post_id, ip_address, date(created_at))** 复合唯一约束，确保同 IP 对同一内容每天仅能点赞一次
-- **写入流程**：前端 POST `/api/likes` → 后端 `INSERT ... ON CONFLICT DO NOTHING` → 若影响行数为 0 则返回 409 Conflict
+- 采用显式 UTC 日期列 `like_date` 和 **UNIQUE (post_id, ip_address, like_date)** 复合唯一约束，确保同 IP 对同一内容每天仅能点赞一次
+- **写入流程**：前端 POST `/api/likes` → 后端事务写入点赞记录并原子增加计数 → MySQL 返回 `ER_DUP_ENTRY` 时响应 409 Conflict
 - **计数一致性**：`like_count` 使用冗余计数（`posts.like_count` / `moments.like_count`），定时任务或触发器与 `post_likes` / `moment_likes` 实际行数对齐
 - IP 地址在存入前做脱敏处理（IPv4 末段置零 `192.168.1.0`，IPv6 末 80bit 置零），在防重复与隐私保护间取得平衡
 
@@ -1461,3 +1463,8 @@ COMMIT;
 ---
 
 *文档结束。各角色（设计师、前端、后端）基于此文档评估工作量与技术方案后可进入开发。*
+
+
+
+
+

@@ -1,15 +1,15 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { eq } from 'drizzle-orm'
-import { Calendar, Clock, Eye, ArrowLeft } from 'lucide-react'
+import { Calendar, Clock, ArrowLeft } from 'lucide-react'
 import { Header } from '@/components/layout/Header'
 import { Footer } from '@/components/layout/Footer'
 import { Container, Section } from '@/components/layout/Container'
 import { TagCloud } from '@/components/ui/Tag'
 import { CommentSection, PostActions } from '@/components/comments/CommentSection'
 import { db, schema } from '@/lib/db'
-import { formatDate } from '@/lib/utils'
-import { extractToc } from '@/lib/markdown'
+import { formatDate, decodeParam } from '@/lib/utils'
+import { extractToc, flattenToc } from '@/lib/markdown'
 import { TableOfContents } from '@/components/article/TableOfContents'
 
 interface PageProps {
@@ -62,8 +62,8 @@ async function getRelatedPosts(tagIds: string[], currentSlug: string) {
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params
-  const post = await getPostBySlug(slug)
+  const { slug: rawSlug } = await params
+  const post = await getPostBySlug(decodeParam(rawSlug))
   if (!post) {
     return { title: '文章未找到 - Qzhou Blog' }
   }
@@ -74,8 +74,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 }
 
 export default async function PostDetailPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params
-  const post = await getPostBySlug(slug)
+  const { slug: rawSlug } = await params
+  const post = await getPostBySlug(decodeParam(rawSlug))
   if (!post) {
     notFound()
   }
@@ -84,7 +84,7 @@ export default async function PostDetailPage({ params }: { params: Promise<{ slu
   const publishedAtIso = (post.publishedAt ?? post.createdAt).toISOString()
   const tags = (post.tags || []).map((pt) => pt.tag)
   const tagIds = tags.map((t) => t.id)
-  const tocItems = post.contentMd ? extractToc(post.contentMd) : []
+  const tocItems = post.contentMd ? flattenToc(extractToc(post.contentMd)) : []
   const related = await getRelatedPosts(tagIds, post.slug)
 
   const comments = (post.comments || []).map((c) => ({
@@ -117,7 +117,12 @@ export default async function PostDetailPage({ params }: { params: Promise<{ slu
                 {post.summary && (
                   <p className="text-lg text-text-secondary leading-relaxed mb-6">{post.summary}</p>
                 )}
-                <PostActions likes={post.likeCount ?? 0} views={post.viewCount ?? 0} />
+                <PostActions
+                  likes={post.likeCount ?? 0}
+                  views={post.viewCount ?? 0}
+                  postId={post.id}
+                  title={post.title}
+                />
                 {post.coverImage && (
                   <div className="aspect-video overflow-hidden rounded-card mt-6">
                     <img src={post.coverImage} alt={post.title} className="w-full h-full object-cover" />
@@ -137,10 +142,6 @@ export default async function PostDetailPage({ params }: { params: Promise<{ slu
                   <span className="flex items-center gap-1">
                     <Clock className="w-4 h-4" />
                     <span>{readingTime} 分钟</span>
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Eye className="w-4 h-4" />
-                    <span>{post.viewCount ?? 0} 阅读</span>
                   </span>
                 </div>
               </header>
@@ -168,7 +169,7 @@ export default async function PostDetailPage({ params }: { params: Promise<{ slu
               )}
 
               <div className="mt-12 pt-8 border-t border-border">
-                <CommentSection comments={comments} />
+                <CommentSection comments={comments} postId={post.id} />
               </div>
             </article>
 

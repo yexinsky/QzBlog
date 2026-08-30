@@ -49,3 +49,15 @@ logs/
 *.zip
 playwright-report/
 test-results/
+
+# temporary debugging scratch files (local QA sessions)
+__tmp_*
+.playwright-mcp/
+test.txt
+tasks/dbcheck*.cjs
+tasks/capture.mjs
+tasks/darktest.mjs
+tasks/layout-analyze.mjs
+tasks/build_final.txt
+tasks/capture_summary.json
+tasks/verify-screenshots/

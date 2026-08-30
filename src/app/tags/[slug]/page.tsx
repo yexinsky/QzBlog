@@ -6,6 +6,7 @@ import { Container, Section, PageTitle } from '@/components/layout/Container'
 import { ArticleList } from '@/components/article/ArticleList'
 import { TagCloud } from '@/components/ui/Tag'
 import { db, schema } from '@/lib/db'
+import { decodeParam } from '@/lib/utils'
 
 interface PageProps {
   params: Promise<{ slug: string }>
@@ -13,7 +14,7 @@ interface PageProps {
 
 async function getTagBySlug(slug: string) {
   return await db.query.tags.findFirst({
-    where: eq(schema.tags.slug, slug),
+    where: eq(schema.tags.slug, decodeParam(slug)),
   })
 }
 

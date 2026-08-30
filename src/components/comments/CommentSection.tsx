@@ -2,9 +2,10 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { MessageCircle, ThumbsUp, Eye, Share2, Bookmark, BookmarkCheck } from 'lucide-react'
+import { MessageCircle, ThumbsUp, Eye, Share2, Bookmark, BookmarkCheck, Send } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
 import { useToast } from '@/components/ui/Toast'
 import { formatDate } from '@/lib/utils'
 import { cn } from '@/lib/utils'
@@ -24,13 +25,44 @@ interface CommentSectionProps {
   comments: Comment[]
   className?: string
   /**
+   * When provided, the comment form is rendered and submissions POST to
+   * /api/comments. New comments enter the 'pending' queue for moderation.
+   */
+  postId?: string
+  /**
    * When provided, reply/like UI will be marked as unavailable via a tooltip
    * rather than pretending to persist. Currently no comment-level API exists.
    */
   unavailableReason?: string
 }
 
-export const CommentSection: React.FC<CommentSectionProps> = ({ comments, className, unavailableReason }) => {
+const COMMENT_IDENTITY_KEY = 'qzhou-blog-comment-identity-v1'
+const MAX_COMMENT_LENGTH = 2000
+
+function readCommentIdentity(): { name: string; email: string } {
+  if (typeof window === 'undefined') return { name: '', email: '' }
+  try {
+    const raw = window.localStorage.getItem(COMMENT_IDENTITY_KEY)
+    if (!raw) return { name: '', email: '' }
+    const parsed = JSON.parse(raw)
+    return {
+      name: typeof parsed?.name === 'string' ? parsed.name : '',
+      email: typeof parsed?.email === 'string' ? parsed.email : '',
+    }
+  } catch {
+    return { name: '', email: '' }
+  }
+}
+
+function writeCommentIdentity(identity: { name: string; email: string }): void {
+  try {
+    window.localStorage.setItem(COMMENT_IDENTITY_KEY, JSON.stringify(identity))
+  } catch {
+    // localStorage unavailable — identity simply won't be remembered.
+  }
+}
+
+export const CommentSection: React.FC<CommentSectionProps> = ({ comments, className, postId, unavailableReason }) => {
   const reason = unavailableReason ?? '评论回复/点赞接口暂未上线'
   return (
     <div className={cn('space-y-6', className)}>
@@ -38,6 +70,8 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ comments, classN
         <MessageCircle className="w-6 h-6" />
         <span>评论 ({comments.length})</span>
       </h3>
+
+      {postId && <CommentForm postId={postId} />}
 
       <div className="space-y-6">
         {comments.map(comment => (
@@ -51,6 +85,116 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ comments, classN
         </p>
       )}
     </div>
+  )
+}
+
+interface CommentFormProps {
+  postId: string
+}
+
+/**
+ * 评论发表表单：匿名访客填写昵称与邮箱即可留言，提交后进入待审核队列。
+ */
+const CommentForm: React.FC<CommentFormProps> = ({ postId }) => {
+  const { addToast } = useToast()
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [content, setContent] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
+
+  useEffect(() => {
+    const identity = readCommentIdentity()
+    if (identity.name) setName(identity.name)
+    if (identity.email) setEmail(identity.email)
+  }, [])
+
+  const remaining = MAX_COMMENT_LENGTH - content.length
+  const canSubmit = name.trim().length > 0 && email.trim().length > 0 && content.trim().length > 0 && remaining >= 0 && !submitting
+
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!canSubmit) return
+    setSubmitting(true)
+    try {
+      const res = await fetch('/api/comments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          postId,
+          authorName: name.trim(),
+          authorEmail: email.trim(),
+          contentMd: content.trim(),
+        }),
+      })
+      if (res.status === 429) {
+        addToast('评论太频繁了，请稍后再试', 'warning')
+        return
+      }
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        addToast(data?.error ? `提交失败：${data.error}` : '提交失败，请稍后再试', 'error')
+        return
+      }
+      writeCommentIdentity({ name: name.trim(), email: email.trim() })
+      setContent('')
+      setSubmitted(true)
+      addToast('评论已提交，审核通过后将显示', 'success')
+    } catch {
+      addToast('提交失败，请检查网络', 'error')
+    } finally {
+      setSubmitting(false)
+    }
+  }, [canSubmit, postId, name, email, content, addToast])
+
+  return (
+    <form onSubmit={handleSubmit} className="rounded-card bg-background-base p-5 space-y-4" aria-label="发表评论">
+      <p className="text-sm font-medium text-text-primary">发表评论</p>
+      {submitted && (
+        <p className="text-sm text-green-600 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded px-3 py-2">
+          评论已提交，等待管理员审核通过后会显示在这里。
+        </p>
+      )}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <Input
+          placeholder="昵称（必填）"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          maxLength={100}
+          required
+          aria-label="昵称"
+        />
+        <Input
+          type="email"
+          placeholder="邮箱（必填，不会公开）"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          maxLength={255}
+          required
+          aria-label="邮箱"
+        />
+      </div>
+      <div>
+        <textarea
+          placeholder="写下你的评论……（支持 Markdown 基础语法）"
+          value={content}
+          onChange={(e) => setContent(e.target.value.slice(0, MAX_COMMENT_LENGTH))}
+          rows={4}
+          maxLength={MAX_COMMENT_LENGTH}
+          className="w-full px-4 py-2.5 rounded-button border border-border bg-background-base text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-brand-orange/40 resize-y"
+          aria-label="评论内容"
+        />
+        <div className="text-right text-xs text-text-muted mt-1">
+          {content.length}/{MAX_COMMENT_LENGTH}
+        </div>
+      </div>
+      <div className="flex justify-end">
+        <Button type="submit" disabled={!canSubmit}>
+          <Send className="w-4 h-4 mr-1.5" />
+          {submitting ? '提交中…' : '提交评论'}
+        </Button>
+      </div>
+    </form>
   )
 }
 

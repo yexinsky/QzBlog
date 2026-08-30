@@ -128,15 +128,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   try {
     const { slug } = await params
     const session = await getServerSession(authOptions);
-    if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session?.user?.id || session.user.role !== 'admin') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const validatedData = updatePostSchema.parse(await request.json());
     const existingPost = await db.query.posts.findFirst({ where: eq(schema.posts.slug, slug) });
     if (!existingPost) return NextResponse.json({ error: 'Post not found' }, { status: 404 });
 
-    const isAdmin = session.user.role === 'admin';
-    if (!isAdmin && existingPost.authorId !== session.user.id) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    if (!isAdmin && validatedData.isPinned !== undefined) return NextResponse.json({ error: 'Only administrators may pin posts' }, { status: 403 });
 
     const tagIds = await validateRelations(validatedData.tagIds, validatedData.seriesId);
     const updateData: Partial<typeof schema.posts.$inferInsert> = { updatedAt: new Date() };
@@ -195,10 +192,10 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
   try {
     const { slug } = await params
     const session = await getServerSession(authOptions);
-    if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session?.user?.id || session.user.role !== 'admin') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const post = await db.query.posts.findFirst({ where: eq(schema.posts.slug, slug) });
     if (!post) return NextResponse.json({ error: 'Post not found' }, { status: 404 });
-    if (session.user.role !== 'admin' && post.authorId !== session.user.id) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
     await db.delete(schema.posts).where(eq(schema.posts.id, post.id));
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -1,0 +1,209 @@
+node:child_process:1000
+    throw err;
+    ^
+
+Error: Command failed: npx jest tests/integration/posts.test.ts --runInBand --no-coverage
+FAIL tests/integration/posts.test.ts
+  文章创建测试
+    √ 创建新文章 (2 ms)
+    × 创建文章时自动生成 slug (1 ms)
+    √ 创建定时发布文章 (1 ms)
+    √ 创建时计算字数
+  文章读取测试
+    √ 获取已发布的文章
+    √ 获取不存在的文章返回 null (1 ms)
+    √ 按状态筛选文章 (13 ms)
+    √ 分页获取文章 (2 ms)
+    √ 获取草稿列表 (1 ms)
+  文章更新测试
+    √ 更新文章标题 (1 ms)
+    √ 更新文章内容
+    √ 更新 slug 时保持唯一性
+    √ 更新时更新时间戳 (10 ms)
+    √ 更新不存在的文章返回 null (1 ms)
+  文章删除测试
+    √ 删除已存在的文章
+    √ 删除不存在的文章返回 false (1 ms)
+    √ 删除文章后相关标签也应清理（外键约束）
+  文章发布与定时发布测试
+    √ 发布草稿文章
+    √ 设置定时发布 (1 ms)
+    √ 取消定时发布
+    √ 定时发布前 5 分钟内可取消 (1 ms)
+    √ 定时发布已过期不可取消（需发布）
+  文章列表与排序测试
+    √ 置顶文章排在最前 (1 ms)
+    × 按发布时间降序排列 (1 ms)
+  文章异常状态测试
+    √ 空文章列表返回空数组 (2 ms)
+    √ 获取已删除文章返回 null
+    √ 分页边界测试 (1 ms)
+  文章搜索与筛选测试
+    × 按标签筛选文章 (1 ms)
+    √ 组合筛选条件 (1 ms)
+    √ 返回分页元数据 (2 ms)
+  分页测试
+    √ 分页计算正确 (page=1, pageSize=10)
+    × 分页计算正确 (page=2, pageSize=10) (1 ms)
+    × 分页计算正确 (page=3, pageSize=10)
+    √ 首页和末页识别
+    √ 上一页下一页状态 (1 ms)
+
+  ● 文章创建测试 › 创建文章时自动生成 slug
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "go-bing-fa-bian-cheng"
+    Received: "go-"
+
+      195 |     const post = await createPost(data);
+      196 |
+    > 197 |     expect(post.slug).toBe('go-bing-fa-bian-cheng');
+          |                       ^
+      198 |   });
+      199 |
+      200 |   test('创建定时发布文章', async () => {
+
+      at Object.<anonymous> (tests/integration/posts.test.ts:197:23)
+
+  ● 文章列表与排序测试 › 按发布时间降序排列
+
+    expect(received).toBeGreaterThanOrEqual(expected)
+
+    Expected: >= 1775829600000
+    Received:    1773568800000
+
+      431 |
+      432 |     for (let i = 1; i < dates.length; i++) {
+    > 433 |       expect(dates[i - 1]).toBeGreaterThanOrEqual(dates[i]);
+          |                            ^
+      434 |     }
+      435 |   });
+      436 | });
+
+      at Object.<anonymous> (tests/integration/posts.test.ts:433:28)
+
+  ● 文章搜索与筛选测试 › 按标签筛选文章
+
+    expect(received).toBeGreaterThan(expected)
+
+    Expected: > 0
+    Received:   0
+
+      474 |     const result = await getPosts({ tag: 'go' });
+      475 |
+    > 476 |     expect(result.data.length).toBeGreaterThan(0);
+          |                                ^
+      477 |     result.data.forEach((post) => {
+      478 |       expect(post.tags.some((t) => t.slug === 'go')).toBe(true);
+      479 |     });
+
+      at Object.<anonymous> (tests/integration/posts.test.ts:476:32)
+
+  ● 分页测试 › 分页计算正确 (page=2, pageSize=10)
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: undefined
+    Received: 3
+
+      507 |     ({ page, pageSize, total, expectedTotalPages }) => {
+      508 |       const totalPages = Math.ceil(total / pageSize);
+    > 509 |       expect(totalPages).toBe(expectedTotalPages);
+          |                          ^
+      510 |     }
+      511 |   );
+      512 |
+
+      at tests/integration/posts.test.ts:509:26
+
+  ● 分页测试 › 分页计算正确 (page=3, pageSize=10)
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: undefined
+    Received: 3
+
+      507 |     ({ page, pageSize, total, expectedTotalPages }) => {
+      508 |       const totalPages = Math.ceil(total / pageSize);
+    > 509 |       expect(totalPages).toBe(expectedTotalPages);
+          |                          ^
+      510 |     }
+      511 |   );
+      512 |
+
+      at tests/integration/posts.test.ts:509:26
+
+Test Suites: 1 failed, 1 total
+Tests:       5 failed, 30 passed, 35 total
+Snapshots:   0 total
+Time:        0.859 s, estimated 1 s
+Ran all test suites matching /tests\\integration\\posts.test.ts/i.
+
+    at genericNodeError (node:internal/errors:985:15)
+    at wrappedFn (node:internal/errors:539:14)
+    at checkExecSyncError (node:child_process:925:11)
+    at Object.execSync (node:child_process:997:15)
+    at [eval]:1:55
+    at runScriptInThisContext (node:internal/vm:219:10)
+    at node:internal/process/execution:451:12
+    at [eval]-wrapper:6:24
+    at runScriptInContext (node:internal/process/execution:449:60)
+    at evalFunction (node:internal/process/execution:283:30) {
+  status: 1,
+  signal: null,
+  output: [
+    null,
+    Buffer(5920) [Uint8Array] [
+       32,  32,  99, 111, 110, 115, 111, 108, 101,  46, 101, 114,
+      114, 111, 114,  10,  32,  32,  32,  32,  91,  68,  66,  71,
+       93,  32, 123,  34, 115, 116,  97, 116, 117, 115,  34,  58,
+       34, 112, 117,  98, 108, 105, 115, 104, 101, 100,  34, 125,
+       32, 115, 116, 111, 114, 101,  76, 101, 110,  61,  32,  52,
+       32, 102, 105, 108, 116, 101, 114, 101, 100,  61,  32,  50,
+       32, 105, 100, 115,  61,  32,  91,  10,  32,  32,  32,  32,
+       32,  32,  39,  49,  97,  50,  98,  51,  99,  52, 100,  45,
+       53, 101,  54, 102,
+      ... 5820 more items
+    ],
+    Buffer(4410) [Uint8Array] [
+       70,  65,  73,  76,  32, 116, 101, 115, 116, 115,  47, 105,
+      110, 116, 101, 103, 114,  97, 116, 105, 111, 110,  47, 112,
+      111, 115, 116, 115,  46, 116, 101, 115, 116,  46, 116, 115,
+       10,  32,  32, 230, 150, 135, 231, 171, 160, 229, 136, 155,
+      229, 187, 186, 230, 181, 139, 232, 175, 149,  10,  32,  32,
+       32,  32, 226, 136, 154,  32, 229, 136, 155, 229, 187, 186,
+      230, 150, 176, 230, 150, 135, 231, 171, 160,  32,  40,  50,
+       32, 109, 115,  41,  10,  32,  32,  32,  32, 195, 151,  32,
+      229, 136, 155, 229,
+      ... 4310 more items
+    ]
+  ],
+  pid: 32640,
+  stdout: Buffer(5920) [Uint8Array] [
+     32,  32,  99, 111, 110, 115, 111, 108, 101,  46, 101, 114,
+    114, 111, 114,  10,  32,  32,  32,  32,  91,  68,  66,  71,
+     93,  32, 123,  34, 115, 116,  97, 116, 117, 115,  34,  58,
+     34, 112, 117,  98, 108, 105, 115, 104, 101, 100,  34, 125,
+     32, 115, 116, 111, 114, 101,  76, 101, 110,  61,  32,  52,
+     32, 102, 105, 108, 116, 101, 114, 101, 100,  61,  32,  50,
+     32, 105, 100, 115,  61,  32,  91,  10,  32,  32,  32,  32,
+     32,  32,  39,  49,  97,  50,  98,  51,  99,  52, 100,  45,
+     53, 101,  54, 102,
+    ... 5820 more items
+  ],
+  stderr: Buffer(4410) [Uint8Array] [
+     70,  65,  73,  76,  32, 116, 101, 115, 116, 115,  47, 105,
+    110, 116, 101, 103, 114,  97, 116, 105, 111, 110,  47, 112,
+    111, 115, 116, 115,  46, 116, 101, 115, 116,  46, 116, 115,
+     10,  32,  32, 230, 150, 135, 231, 171, 160, 229, 136, 155,
+    229, 187, 186, 230, 181, 139, 232, 175, 149,  10,  32,  32,
+     32,  32, 226, 136, 154,  32, 229, 136, 155, 229, 187, 186,
+    230, 150, 176, 230, 150, 135, 231, 171, 160,  32,  40,  50,
+     32, 109, 115,  41,  10,  32,  32,  32,  32, 195, 151,  32,
+    229, 136, 155, 229,
+    ... 4310 more items
+  ]
+}
+
+Node.js v24.14.1

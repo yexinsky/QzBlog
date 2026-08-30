@@ -1,0 +1,315 @@
+--- Toolbar buttons (15) ---
+[
+  {
+    "title": "标题1",
+    "label": "H1"
+  },
+  {
+    "title": "标题2",
+    "label": "H2"
+  },
+  {
+    "title": "标题3",
+    "label": "H3"
+  },
+  {
+    "title": "粗体",
+    "label": "B"
+  },
+  {
+    "title": "斜体",
+    "label": "I"
+  },
+  {
+    "title": "删除线",
+    "label": "S"
+  },
+  {
+    "title": "链接",
+    "label": "链接"
+  },
+  {
+    "title": "图片",
+    "label": "图片"
+  },
+  {
+    "title": "行内代码",
+    "label": "代码"
+  },
+  {
+    "title": "代码块",
+    "label": "代码块"
+  },
+  {
+    "title": "引用",
+    "label": "引用"
+  },
+  {
+    "title": "无序列表",
+    "label": "列表"
+  },
+  {
+    "title": "有序列表",
+    "label": "有序列表"
+  },
+  {
+    "title": "任务列表",
+    "label": "任务"
+  },
+  {
+    "title": "表格",
+    "label": "表格"
+  }
+]
+
+--- onInsert calls per button ---
+[
+  {
+    "title": "标题1",
+    "label": "H1",
+    "onInsertCalls": [
+      {
+        "text": "# ",
+        "placeholder": "标题1"
+      }
+    ]
+  },
+  {
+    "title": "标题2",
+    "label": "H2",
+    "onInsertCalls": [
+      {
+        "text": "## ",
+        "placeholder": "标题2"
+      }
+    ]
+  },
+  {
+    "title": "标题3",
+    "label": "H3",
+    "onInsertCalls": [
+      {
+        "text": "### ",
+        "placeholder": "标题3"
+      }
+    ]
+  },
+  {
+    "title": "粗体",
+    "label": "B",
+    "onInsertCalls": [
+      {
+        "text": "**",
+        "placeholder": "粗体文字"
+      }
+    ]
+  },
+  {
+    "title": "斜体",
+    "label": "I",
+    "onInsertCalls": [
+      {
+        "text": "*",
+        "placeholder": "斜体文字"
+      }
+    ]
+  },
+  {
+    "title": "删除线",
+    "label": "S",
+    "onInsertCalls": [
+      {
+        "text": "~~",
+        "placeholder": "删除线文字"
+      }
+    ]
+  },
+  {
+    "title": "链接",
+    "label": "链接",
+    "onInsertCalls": [
+      {
+        "text": "[",
+        "placeholder": "链接文字"
+      }
+    ]
+  },
+  {
+    "title": "图片",
+    "label": "图片",
+    "onInsertCalls": [
+      {
+        "text": "![",
+        "placeholder": "图片alt"
+      }
+    ]
+  },
+  {
+    "title": "行内代码",
+    "label": "代码",
+    "onInsertCalls": [
+      {
+        "text": "`",
+        "placeholder": "代码"
+      }
+    ]
+  },
+  {
+    "title": "代码块",
+    "label": "代码块",
+    "onInsertCalls": [
+      {
+        "text": "\n```\n\n```\n",
+        "placeholder": "代码块"
+      }
+    ]
+  },
+  {
+    "title": "引用",
+    "label": "引用",
+    "onInsertCalls": [
+      {
+        "text": "> ",
+        "placeholder": "引用内容"
+      }
+    ]
+  },
+  {
+    "title": "无序列表",
+    "label": "列表",
+    "onInsertCalls": [
+      {
+        "text": "- ",
+        "placeholder": "列表项"
+      }
+    ]
+  },
+  {
+    "title": "有序列表",
+    "label": "有序列表",
+    "onInsertCalls": [
+      {
+        "text": "1. ",
+        "placeholder": "列表项"
+      }
+    ]
+  },
+  {
+    "title": "任务列表",
+    "label": "任务",
+    "onInsertCalls": [
+      {
+        "text": "- [ ] ",
+        "placeholder": "任务项"
+      }
+    ]
+  },
+  {
+    "title": "表格",
+    "label": "表格",
+    "onInsertCalls": [
+      {
+        "text": "\n| 列1 | 列2 | 列3 |\n| --- | --- | --- |\n| 内容 | 内容 | 内容 |\n",
+        "placeholder": "表格"
+      }
+    ]
+  }
+]
+
+--- Legality checks ---
+[
+  {
+    "title": "标题1",
+    "legal": true,
+    "text": "# ",
+    "placeholders": "标题1"
+  },
+  {
+    "title": "标题2",
+    "legal": true,
+    "text": "## ",
+    "placeholders": "标题2"
+  },
+  {
+    "title": "标题3",
+    "legal": true,
+    "text": "### ",
+    "placeholders": "标题3"
+  },
+  {
+    "title": "粗体",
+    "legal": true,
+    "text": "**",
+    "placeholders": "粗体文字"
+  },
+  {
+    "title": "斜体",
+    "legal": true,
+    "text": "*",
+    "placeholders": "斜体文字"
+  },
+  {
+    "title": "删除线",
+    "legal": true,
+    "text": "~~",
+    "placeholders": "删除线文字"
+  },
+  {
+    "title": "链接",
+    "legal": true,
+    "text": "[",
+    "placeholders": "链接文字"
+  },
+  {
+    "title": "图片",
+    "legal": true,
+    "text": "![",
+    "placeholders": "图片alt"
+  },
+  {
+    "title": "行内代码",
+    "legal": true,
+    "text": "`",
+    "placeholders": "代码"
+  },
+  {
+    "title": "代码块",
+    "legal": true,
+    "text": "\n```\n\n```\n",
+    "placeholders": "代码块"
+  },
+  {
+    "title": "引用",
+    "legal": true,
+    "text": "> ",
+    "placeholders": "引用内容"
+  },
+  {
+    "title": "无序列表",
+    "legal": true,
+    "text": "- ",
+    "placeholders": "列表项"
+  },
+  {
+    "title": "有序列表",
+    "legal": true,
+    "text": "1. ",
+    "placeholders": "列表项"
+  },
+  {
+    "title": "任务列表",
+    "legal": true,
+    "text": "- [ ] ",
+    "placeholders": "任务项"
+  },
+  {
+    "title": "表格",
+    "legal": true,
+    "text": "\n| 列1 | 列2 | 列3 |\n| --- | --- | --- |\n| 内容 | 内容 | 内容 |\n",
+    "placeholders": "表格"
+  }
+]
+
+--- MarkdownEditorWithToolbar.handleInsert behavior ---
+After # and 标题1: value = "# 标题1"
+Key: handleInsert concatenates to end, ignores placeholder text

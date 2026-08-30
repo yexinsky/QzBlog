@@ -1,0 +1,30 @@
+
+      at console.error (tests/setup.ts:88:19)
+      at getPosts (tests/integration/posts.test.ts:97:40)
+      at Object.<anonymous> (tests/integration/posts.test.ts:461:26)
+
+  console.error
+    [DBG] {"tag":"go"} storeLen= 4 filtered= 0 ids= [
+      '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6',
+      '2b3c4d5e-6f7a-8b9c-0d1e-f2g3h4i5j6k7',
+      '3c4d5e6f-7a8b-9c0d-1e2f-3g4h5i6j7k8',
+      '4d5e6f7a-8b9c-0d1e-2f3a-4g5h6i7j8k9'
+    ]
+
+      86 |       return;
+      87 |     }
+    > 88 |     originalError.call(console, ...args);
+         |                   ^
+      89 |   };
+      90 | });
+      91 |
+
+      at console.error (tests/setup.ts:88:19)
+      at getPosts (tests/integration/posts.test.ts:97:40)
+      at Object.<anonymous> (tests/integration/posts.test.ts:474:26)
+
+  console.error
+    [DBG] {"status":"published","tag":"go"} storeLen= 4 filtered= 0 ids= [
+      '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6',
+      '2b3c4d5e-6f7a-8b9c-0d1e-f2g3h4i5j6k7',
+      '3c4d5e6f-7a8b-9c0d-1e2f-3g4h5i6j7k8',

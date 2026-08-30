@@ -1,0 +1,26 @@
+=== Phase 5 首页视觉+真实数据 smoke 报告 ===
+时间: 2026-08-25 12:12
+
+1) Build: SUCCESS (24/24 路由, / 变 ƒ Dynamic)
+2) Smoke port 3102: GET / -> 200, 69271 bytes
+3) Mock 数据全部清除:
+   - "getting-started-nextjs": False
+   - "tailwindcss-best-practices": False
+   - "typescript-advanced-patterns": False
+   - "/categories/frontend" 分类导航: False
+   - "分类导航" 标签: False
+4) 真实 DB 渲染:
+   - 4 published posts in DB
+   - 8 article links on /  (4 posts × 2 link each)
+   - ProfileCard (Qzhou + bio + tag chips) 渲染 ✓
+   - 标签云 + 最近文章 sidebar 渲染 ✓
+5) lucide Tag 巨型 SVG bug 修复:
+   - lucide-tag class 在首页 0 次 (此前 > 0)
+   - 改用 @/components/ui/Tag 自定义 Tag, 34 个 chip
+6) 视觉统一:
+   - 封面 aspect-[16/9] (8 = 4 卡 × 2 类名引用)
+   - object-cover (13 次, 含 sidebar / 页内引用)
+   - Card flex flex-col h-full, 桌面卡等高
+7) 空库分支:
+   - code path 完整: EmptyIllustration + EmptyState 卡 + 两 CTA
+   - 当前 DB 非空, 不渲染空态

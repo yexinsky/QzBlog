@@ -10,34 +10,32 @@ module.exports = {
     extend: {
       colors: {
         brand: {
-          orange: '#D36F2B',
-          light: '#E88B45',
-          dark: '#B8591F',
+          orange: 'rgb(var(--color-primary) / <alpha-value>)',
+          light: 'rgb(var(--color-primary-light) / <alpha-value>)',
+          dark: 'rgb(var(--color-primary-dark) / <alpha-value>)',
         },
         background: {
-          base: '#FFFFFF',
-          cream: '#F5F1EA',
-          hover: '#F0EBE3',
+          base: 'rgb(var(--color-bg-base) / <alpha-value>)',
+          cream: 'rgb(var(--color-bg-cream) / <alpha-value>)',
+          hover: 'rgb(var(--color-bg-hover) / <alpha-value>)',
         },
         border: {
-          DEFAULT: '#EBE7E0',
-          strong: '#D9D2C8',
+          DEFAULT: 'rgb(var(--color-border) / <alpha-value>)',
+          strong: 'rgb(var(--color-border-strong) / <alpha-value>)',
         },
         text: {
-          primary: '#1A1A1A',
-          secondary: '#444444',
-          muted: '#777777',
-        }
+          primary: 'rgb(var(--color-text-primary) / <alpha-value>)',
+          secondary: 'rgb(var(--color-text-secondary) / <alpha-value>)',
+          muted: 'rgb(var(--color-text-muted) / <alpha-value>)',
+        },
       },
       fontFamily: {
         sans: ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
       },
       spacing: {
-        'page': {
-          'desktop': '48px',
-          'tablet': '32px',
-          'mobile': '20px',
-        }
+        'page-desktop': '48px',
+        'page-tablet': '32px',
+        'page-mobile': '20px',
       },
       borderRadius: {
         'card': '12px',
@@ -53,8 +51,11 @@ module.exports = {
       },
       transitionTimingFunction: {
         'DEFAULT': 'ease-in-out',
-      }
+      },
     },
   },
-  plugins: [],
+  plugins: [
+    // Markdown 正文排版（prose / prose-lg）：文章页的标题层级、列表符号、表格边框
+    require('@tailwindcss/typography'),
+  ],
 }

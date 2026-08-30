@@ -1,0 +1,511 @@
+  console.error
+    [DBG] {"status":"published"} storeLen= 4 filtered= 2 ids= [
+      '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6',
+      '2b3c4d5e-6f7a-8b9c-0d1e-f2g3h4i5j6k7',
+      '3c4d5e6f-7a8b-9c0d-1e2f-3g4h5i6j7k8',
+      '4d5e6f7a-8b9c-0d1e-2f3a-4g5h6i7j8k9'
+    ]
+
+      86 |       return;
+      87 |     }
+    > 88 |     originalError.call(console, ...args);
+         |                   ^
+      89 |   };
+      90 | });
+      91 |
+
+      at console.error (tests/setup.ts:88:19)
+      at getPosts (tests/integration/posts.test.ts:98:40)
+      at Object.<anonymous> (tests/integration/posts.test.ts:252:26)
+
+  console.error
+    [DBG tags] [{"id":"1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6","tags":[{"id":"tag-1","name":"Go","slug":"go"},{"id":"tag-2","name":"并发编程","slug":"concurrency"}]},{"id":"2b3c4d5e-6f7a-8b9c-0d1e-f2g3h4i5j6k7","tags":[{"id":"tag-3","name":"React","slug":"react"},{"id":"tag-4","name":"Hooks","slug":"hooks"}]},{"id":"3c4d5e6f-7a8b-9c0d-1e2f-3g4h5i6j7k8","tags":[]},{"id":"4d5e6f7a-8b9c-0d1e-2f3a-4g5h6i7j8k9","tags":[]}]
+
+      86 |       return;
+      87 |     }
+    > 88 |     originalError.call(console, ...args);
+         |                   ^
+      89 |   };
+      90 | });
+      91 |
+
+      at console.error (tests/setup.ts:88:19)
+      at getPosts (tests/integration/posts.test.ts:99:40)
+      at Object.<anonymous> (tests/integration/posts.test.ts:252:26)
+
+  console.error
+    [DBG] {"page":1,"pageSize":2} storeLen= 4 filtered= 4 ids= [
+      '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6',
+      '2b3c4d5e-6f7a-8b9c-0d1e-f2g3h4i5j6k7',
+      '3c4d5e6f-7a8b-9c0d-1e2f-3g4h5i6j7k8',
+      '4d5e6f7a-8b9c-0d1e-2f3a-4g5h6i7j8k9'
+    ]
+
+      86 |       return;
+      87 |     }
+    > 88 |     originalError.call(console, ...args);
+         |                   ^
+      89 |   };
+      90 | });
+      91 |
+
+      at console.error (tests/setup.ts:88:19)
+      at getPosts (tests/integration/posts.test.ts:98:40)
+      at Object.<anonymous> (tests/integration/posts.test.ts:261:26)
+
+  console.error
+    [DBG tags] [{"id":"1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6","tags":[{"id":"tag-1","name":"Go","slug":"go"},{"id":"tag-2","name":"并发编程","slug":"concurrency"}]},{"id":"2b3c4d5e-6f7a-8b9c-0d1e-f2g3h4i5j6k7","tags":[{"id":"tag-3","name":"React","slug":"react"},{"id":"tag-4","name":"Hooks","slug":"hooks"}]},{"id":"3c4d5e6f-7a8b-9c0d-1e2f-3g4h5i6j7k8","tags":[]},{"id":"4d5e6f7a-8b9c-0d1e-2f3a-4g5h6i7j8k9","tags":[]}]
+
+      86 |       return;
+      87 |     }
+    > 88 |     originalError.call(console, ...args);
+         |                   ^
+      89 |   };
+      90 | });
+      91 |
+
+      at console.error (tests/setup.ts:88:19)
+      at getPosts (tests/integration/posts.test.ts:99:40)
+      at Object.<anonymous> (tests/integration/posts.test.ts:261:26)
+
+  console.error
+    [DBG] {"status":"draft"} storeLen= 4 filtered= 1 ids= [
+      '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6',
+      '2b3c4d5e-6f7a-8b9c-0d1e-f2g3h4i5j6k7',
+      '3c4d5e6f-7a8b-9c0d-1e2f-3g4h5i6j7k8',
+      '4d5e6f7a-8b9c-0d1e-2f3a-4g5h6i7j8k9'
+    ]
+
+      86 |       return;
+      87 |     }
+    > 88 |     originalError.call(console, ...args);
+         |                   ^
+      89 |   };
+      90 | });
+      91 |
+
+      at console.error (tests/setup.ts:88:19)
+      at getPosts (tests/integration/posts.test.ts:98:40)
+      at Object.<anonymous> (tests/integration/posts.test.ts:268:26)
+
+  console.error
+    [DBG tags] [{"id":"1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6","tags":[{"id":"tag-1","name":"Go","slug":"go"},{"id":"tag-2","name":"并发编程","slug":"concurrency"}]},{"id":"2b3c4d5e-6f7a-8b9c-0d1e-f2g3h4i5j6k7","tags":[{"id":"tag-3","name":"React","slug":"react"},{"id":"tag-4","name":"Hooks","slug":"hooks"}]},{"id":"3c4d5e6f-7a8b-9c0d-1e2f-3g4h5i6j7k8","tags":[]},{"id":"4d5e6f7a-8b9c-0d1e-2f3a-4g5h6i7j8k9","tags":[]}]
+
+      86 |       return;
+      87 |     }
+    > 88 |     originalError.call(console, ...args);
+         |                   ^
+      89 |   };
+      90 | });
+      91 |
+
+      at console.error (tests/setup.ts:88:19)
+      at getPosts (tests/integration/posts.test.ts:99:40)
+      at Object.<anonymous> (tests/integration/posts.test.ts:268:26)
+
+  console.error
+    [DBG] {"pageSize":10} storeLen= 4 filtered= 4 ids= [
+      '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6',
+      '2b3c4d5e-6f7a-8b9c-0d1e-f2g3h4i5j6k7',
+      '3c4d5e6f-7a8b-9c0d-1e2f-3g4h5i6j7k8',
+      '4d5e6f7a-8b9c-0d1e-2f3a-4g5h6i7j8k9'
+    ]
+
+      86 |       return;
+      87 |     }
+    > 88 |     originalError.call(console, ...args);
+         |                   ^
+      89 |   };
+      90 | });
+      91 |
+
+      at console.error (tests/setup.ts:88:19)
+      at getPosts (tests/integration/posts.test.ts:98:40)
+      at Object.<anonymous> (tests/integration/posts.test.ts:418:26)
+
+  console.error
+    [DBG tags] [{"id":"1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6","tags":[]},{"id":"2b3c4d5e-6f7a-8b9c-0d1e-f2g3h4i5j6k7","tags":[{"id":"tag-3","name":"React","slug":"react"},{"id":"tag-4","name":"Hooks","slug":"hooks"}]},{"id":"3c4d5e6f-7a8b-9c0d-1e2f-3g4h5i6j7k8","tags":[]},{"id":"4d5e6f7a-8b9c-0d1e-2f3a-4g5h6i7j8k9","tags":[]}]
+
+      86 |       return;
+      87 |     }
+    > 88 |     originalError.call(console, ...args);
+         |                   ^
+      89 |   };
+      90 | });
+      91 |
+
+      at console.error (tests/setup.ts:88:19)
+      at getPosts (tests/integration/posts.test.ts:99:40)
+      at Object.<anonymous> (tests/integration/posts.test.ts:418:26)
+
+  console.error
+    [DBG] {"status":"published"} storeLen= 4 filtered= 2 ids= [
+      '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6',
+      '2b3c4d5e-6f7a-8b9c-0d1e-f2g3h4i5j6k7',
+      '3c4d5e6f-7a8b-9c0d-1e2f-3g4h5i6j7k8',
+      '4d5e6f7a-8b9c-0d1e-2f3a-4g5h6i7j8k9'
+    ]
+
+      86 |       return;
+      87 |     }
+    > 88 |     originalError.call(console, ...args);
+         |                   ^
+      89 |   };
+      90 | });
+      91 |
+
+      at console.error (tests/setup.ts:88:19)
+      at getPosts (tests/integration/posts.test.ts:98:40)
+      at Object.<anonymous> (tests/integration/posts.test.ts:428:26)
+
+  console.error
+    [DBG tags] [{"id":"1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6","tags":[]},{"id":"2b3c4d5e-6f7a-8b9c-0d1e-f2g3h4i5j6k7","tags":[{"id":"tag-3","name":"React","slug":"react"},{"id":"tag-4","name":"Hooks","slug":"hooks"}]},{"id":"3c4d5e6f-7a8b-9c0d-1e2f-3g4h5i6j7k8","tags":[]},{"id":"4d5e6f7a-8b9c-0d1e-2f3a-4g5h6i7j8k9","tags":[]}]
+
+      86 |       return;
+      87 |     }
+    > 88 |     originalError.call(console, ...args);
+         |                   ^
+      89 |   };
+      90 | });
+      91 |
+
+      at console.error (tests/setup.ts:88:19)
+      at getPosts (tests/integration/posts.test.ts:99:40)
+      at Object.<anonymous> (tests/integration/posts.test.ts:428:26)
+
+  console.error
+    [DBG] {"status":"published"} storeLen= 0 filtered= 0 ids= []
+
+      86 |       return;
+      87 |     }
+    > 88 |     originalError.call(console, ...args);
+         |                   ^
+      89 |   };
+      90 | });
+      91 |
+
+      at console.error (tests/setup.ts:88:19)
+      at getPosts (tests/integration/posts.test.ts:98:40)
+      at Object.<anonymous> (tests/integration/posts.test.ts:447:26)
+
+  console.error
+    [DBG tags] []
+
+      86 |       return;
+      87 |     }
+    > 88 |     originalError.call(console, ...args);
+         |                   ^
+      89 |   };
+      90 | });
+      91 |
+
+      at console.error (tests/setup.ts:88:19)
+      at getPosts (tests/integration/posts.test.ts:99:40)
+      at Object.<anonymous> (tests/integration/posts.test.ts:447:26)
+
+  console.error
+    [DBG] {"page":100,"pageSize":10} storeLen= 4 filtered= 4 ids= [
+      '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6',
+      '2b3c4d5e-6f7a-8b9c-0d1e-f2g3h4i5j6k7',
+      '3c4d5e6f-7a8b-9c0d-1e2f-3g4h5i6j7k8',
+      '4d5e6f7a-8b9c-0d1e-2f3a-4g5h6i7j8k9'
+    ]
+
+      86 |       return;
+      87 |     }
+    > 88 |     originalError.call(console, ...args);
+         |                   ^
+      89 |   };
+      90 | });
+      91 |
+
+      at console.error (tests/setup.ts:88:19)
+      at getPosts (tests/integration/posts.test.ts:98:40)
+      at Object.<anonymous> (tests/integration/posts.test.ts:463:26)
+
+  console.error
+    [DBG tags] [{"id":"1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6","tags":[]},{"id":"2b3c4d5e-6f7a-8b9c-0d1e-f2g3h4i5j6k7","tags":[{"id":"tag-3","name":"React","slug":"react"},{"id":"tag-4","name":"Hooks","slug":"hooks"}]},{"id":"3c4d5e6f-7a8b-9c0d-1e2f-3g4h5i6j7k8","tags":[]},{"id":"4d5e6f7a-8b9c-0d1e-2f3a-4g5h6i7j8k9","tags":[]}]
+
+      86 |       return;
+      87 |     }
+    > 88 |     originalError.call(console, ...args);
+         |                   ^
+      89 |   };
+      90 | });
+      91 |
+
+      at console.error (tests/setup.ts:88:19)
+      at getPosts (tests/integration/posts.test.ts:99:40)
+      at Object.<anonymous> (tests/integration/posts.test.ts:463:26)
+
+  console.error
+    [DBG filter] string go []
+
+      86 |       return;
+      87 |     }
+    > 88 |     originalError.call(console, ...args);
+         |                   ^
+      89 |   };
+      90 | });
+      91 |
+
+      at console.error (tests/setup.ts:88:19)
+      at getPosts (tests/integration/posts.test.ts:97:49)
+      at Object.<anonymous> (tests/integration/posts.test.ts:476:26)
+
+  console.error
+    [DBG] {"tag":"go"} storeLen= 4 filtered= 0 ids= [
+      '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6',
+      '2b3c4d5e-6f7a-8b9c-0d1e-f2g3h4i5j6k7',
+      '3c4d5e6f-7a8b-9c0d-1e2f-3g4h5i6j7k8',
+      '4d5e6f7a-8b9c-0d1e-2f3a-4g5h6i7j8k9'
+    ]
+
+      86 |       return;
+      87 |     }
+    > 88 |     originalError.call(console, ...args);
+         |                   ^
+      89 |   };
+      90 | });
+      91 |
+
+      at console.error (tests/setup.ts:88:19)
+      at getPosts (tests/integration/posts.test.ts:98:40)
+      at Object.<anonymous> (tests/integration/posts.test.ts:476:26)
+
+  console.error
+    [DBG tags] [{"id":"1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6","tags":[]},{"id":"2b3c4d5e-6f7a-8b9c-0d1e-f2g3h4i5j6k7","tags":[{"id":"tag-3","name":"React","slug":"react"},{"id":"tag-4","name":"Hooks","slug":"hooks"}]},{"id":"3c4d5e6f-7a8b-9c0d-1e2f-3g4h5i6j7k8","tags":[]},{"id":"4d5e6f7a-8b9c-0d1e-2f3a-4g5h6i7j8k9","tags":[]}]
+
+      86 |       return;
+      87 |     }
+    > 88 |     originalError.call(console, ...args);
+         |                   ^
+      89 |   };
+      90 | });
+      91 |
+
+      at console.error (tests/setup.ts:88:19)
+      at getPosts (tests/integration/posts.test.ts:99:40)
+      at Object.<anonymous> (tests/integration/posts.test.ts:476:26)
+
+  console.error
+    [DBG filter] string go []
+
+      86 |       return;
+      87 |     }
+    > 88 |     originalError.call(console, ...args);
+         |                   ^
+      89 |   };
+      90 | });
+      91 |
+
+      at console.error (tests/setup.ts:88:19)
+      at getPosts (tests/integration/posts.test.ts:97:49)
+      at Object.<anonymous> (tests/integration/posts.test.ts:485:26)
+
+  console.error
+    [DBG] {"status":"published","tag":"go"} storeLen= 4 filtered= 0 ids= [
+      '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6',
+      '2b3c4d5e-6f7a-8b9c-0d1e-f2g3h4i5j6k7',
+      '3c4d5e6f-7a8b-9c0d-1e2f-3g4h5i6j7k8',
+      '4d5e6f7a-8b9c-0d1e-2f3a-4g5h6i7j8k9'
+    ]
+
+      86 |       return;
+      87 |     }
+    > 88 |     originalError.call(console, ...args);
+         |                   ^
+      89 |   };
+      90 | });
+      91 |
+
+      at console.error (tests/setup.ts:88:19)
+      at getPosts (tests/integration/posts.test.ts:98:40)
+      at Object.<anonymous> (tests/integration/posts.test.ts:485:26)
+
+  console.error
+    [DBG tags] [{"id":"1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6","tags":[]},{"id":"2b3c4d5e-6f7a-8b9c-0d1e-f2g3h4i5j6k7","tags":[{"id":"tag-3","name":"React","slug":"react"},{"id":"tag-4","name":"Hooks","slug":"hooks"}]},{"id":"3c4d5e6f-7a8b-9c0d-1e2f-3g4h5i6j7k8","tags":[]},{"id":"4d5e6f7a-8b9c-0d1e-2f3a-4g5h6i7j8k9","tags":[]}]
+
+      86 |       return;
+      87 |     }
+    > 88 |     originalError.call(console, ...args);
+         |                   ^
+      89 |   };
+      90 | });
+      91 |
+
+      at console.error (tests/setup.ts:88:19)
+      at getPosts (tests/integration/posts.test.ts:99:40)
+      at Object.<anonymous> (tests/integration/posts.test.ts:485:26)
+
+  console.error
+    [DBG] {"page":1,"pageSize":2} storeLen= 4 filtered= 4 ids= [
+      '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6',
+      '2b3c4d5e-6f7a-8b9c-0d1e-f2g3h4i5j6k7',
+      '3c4d5e6f-7a8b-9c0d-1e2f-3g4h5i6j7k8',
+      '4d5e6f7a-8b9c-0d1e-2f3a-4g5h6i7j8k9'
+    ]
+
+      86 |       return;
+      87 |     }
+    > 88 |     originalError.call(console, ...args);
+         |                   ^
+      89 |   };
+      90 | });
+      91 |
+
+      at console.error (tests/setup.ts:88:19)
+      at getPosts (tests/integration/posts.test.ts:98:40)
+      at Object.<anonymous> (tests/integration/posts.test.ts:494:26)
+
+  console.error
+    [DBG tags] [{"id":"1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6","tags":[]},{"id":"2b3c4d5e-6f7a-8b9c-0d1e-f2g3h4i5j6k7","tags":[{"id":"tag-3","name":"React","slug":"react"},{"id":"tag-4","name":"Hooks","slug":"hooks"}]},{"id":"3c4d5e6f-7a8b-9c0d-1e2f-3g4h5i6j7k8","tags":[]},{"id":"4d5e6f7a-8b9c-0d1e-2f3a-4g5h6i7j8k9","tags":[]}]
+
+      86 |       return;
+      87 |     }
+    > 88 |     originalError.call(console, ...args);
+         |                   ^
+      89 |   };
+      90 | });
+      91 |
+
+      at console.error (tests/setup.ts:88:19)
+      at getPosts (tests/integration/posts.test.ts:99:40)
+      at Object.<anonymous> (tests/integration/posts.test.ts:494:26)
+
+FAIL tests/integration/posts.test.ts
+  文章创建测试
+    √ 创建新文章 (2 ms)
+    × 创建文章时自动生成 slug (1 ms)
+    √ 创建定时发布文章 (4 ms)
+    √ 创建时计算字数 (1 ms)
+  文章读取测试
+    √ 获取已发布的文章
+    √ 获取不存在的文章返回 null (1 ms)
+    √ 按状态筛选文章 (23 ms)
+    √ 分页获取文章 (2 ms)
+    √ 获取草稿列表 (2 ms)
+  文章更新测试
+    √ 更新文章标题
+    √ 更新文章内容 (1 ms)
+    √ 更新 slug 时保持唯一性
+    √ 更新时更新时间戳 (23 ms)
+    √ 更新不存在的文章返回 null
+  文章删除测试
+    √ 删除已存在的文章 (1 ms)
+    √ 删除不存在的文章返回 false
+    √ 删除文章后相关标签也应清理（外键约束）
+  文章发布与定时发布测试
+    √ 发布草稿文章
+    √ 设置定时发布
+    √ 取消定时发布
+    √ 定时发布前 5 分钟内可取消
+    √ 定时发布已过期不可取消（需发布）
+  文章列表与排序测试
+    √ 置顶文章排在最前 (2 ms)
+    × 按发布时间降序排列 (2 ms)
+  文章异常状态测试
+    √ 空文章列表返回空数组 (2 ms)
+    √ 获取已删除文章返回 null
+    √ 分页边界测试 (1 ms)
+  文章搜索与筛选测试
+    × 按标签筛选文章 (2 ms)
+    √ 组合筛选条件 (2 ms)
+    √ 返回分页元数据 (2 ms)
+  分页测试
+    √ 分页计算正确 (page=1, pageSize=10)
+    × 分页计算正确 (page=2, pageSize=10)
+    × 分页计算正确 (page=3, pageSize=10)
+    √ 首页和末页识别
+    √ 上一页下一页状态
+
+  ● 文章创建测试 › 创建文章时自动生成 slug
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "go-bing-fa-bian-cheng"
+    Received: "go-"
+
+      197 |     const post = await createPost(data);
+      198 |
+    > 199 |     expect(post.slug).toBe('go-bing-fa-bian-cheng');
+          |                       ^
+      200 |   });
+      201 |
+      202 |   test('创建定时发布文章', async () => {
+
+      at Object.<anonymous> (tests/integration/posts.test.ts:199:23)
+
+  ● 文章列表与排序测试 › 按发布时间降序排列
+
+    expect(received).toBeGreaterThanOrEqual(expected)
+
+    Expected: >= 1775829600000
+    Received:    1773568800000
+
+      433 |
+      434 |     for (let i = 1; i < dates.length; i++) {
+    > 435 |       expect(dates[i - 1]).toBeGreaterThanOrEqual(dates[i]);
+          |                            ^
+      436 |     }
+      437 |   });
+      438 | });
+
+      at Object.<anonymous> (tests/integration/posts.test.ts:435:28)
+
+  ● 文章搜索与筛选测试 › 按标签筛选文章
+
+    expect(received).toBeGreaterThan(expected)
+
+    Expected: > 0
+    Received:   0
+
+      476 |     const result = await getPosts({ tag: 'go' });
+      477 |
+    > 478 |     expect(result.data.length).toBeGreaterThan(0);
+          |                                ^
+      479 |     result.data.forEach((post) => {
+      480 |       expect(post.tags.some((t) => t.slug === 'go')).toBe(true);
+      481 |     });
+
+      at Object.<anonymous> (tests/integration/posts.test.ts:478:32)
+
+  ● 分页测试 › 分页计算正确 (page=2, pageSize=10)
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: undefined
+    Received: 3
+
+      509 |     ({ page, pageSize, total, expectedTotalPages }) => {
+      510 |       const totalPages = Math.ceil(total / pageSize);
+    > 511 |       expect(totalPages).toBe(expectedTotalPages);
+          |                          ^
+      512 |     }
+      513 |   );
+      514 |
+
+      at tests/integration/posts.test.ts:511:26
+
+  ● 分页测试 › 分页计算正确 (page=3, pageSize=10)
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: undefined
+    Received: 3
+
+      509 |     ({ page, pageSize, total, expectedTotalPages }) => {
+      510 |       const totalPages = Math.ceil(total / pageSize);
+    > 511 |       expect(totalPages).toBe(expectedTotalPages);
+          |                          ^
+      512 |     }
+      513 |   );
+      514 |
+
+      at tests/integration/posts.test.ts:511:26
+
+Test Suites: 1 failed, 1 total
+Tests:       5 failed, 30 passed, 35 total
+Snapshots:   0 total
+Time:        1.023 s
+Ran all test suites matching /tests\\integration\\posts.test.ts/i.

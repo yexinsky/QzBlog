@@ -9,12 +9,20 @@ QzBlog 是一个面向软件开发者的个人品牌站点，采用以下技术�
 | 框架 | Next.js App Router (SSR + ISR, 全栈 TypeScript) |
 | 后端 | Next.js API Routes (BFF 层直连数据库) |
 | 样式 | Tailwind CSS |
-| 数据库 | PostgreSQL 16 + Drizzle ORM |
+| 数据库 | MySQL 8.0 + Drizzle ORM |
 | 认证 | NextAuth.js + GitHub OAuth |
 | 图片存储 | MinIO (S3 兼容对象存储) |
 | 语法高亮 | Shiki (SSR 友好) |
 | Markdown 渲染 | remark + rehype 生态 |
 | 部署 | Docker Compose (自有服务器) |
+
+### MySQL 约定
+
+- 目标版本为 MySQL 8.0，存储引擎使用 InnoDB，字符集使用 `utf8mb4`
+- 业务主键使用 `varchar(36)`，由 Node.js `crypto.randomUUID()` 生成
+- 时间字段使用 `datetime(3)`，应用连接统一按 UTC 读写
+- Drizzle 使用 `mysql-core`、`mysql2` 驱动；MySQL 不支持通用 `RETURNING`，写入后按主键或唯一键重新查询
+- 当前文章搜索使用 `LIKE`；启用 `FULLTEXT` 前必须验证 `ngram parser` 的中文检索效果
 
 ## 2. 目录结构
 
@@ -155,7 +163,7 @@ QzhouBlog/
 - Next.js SSR + ISR 混合策略
 - 图片懒加载
 - 代码块按需语法高亮
-- 全站搜索 PostgreSQL 全文检索 (≤500ms)
+- 全站搜索 MySQL LIKE / FULLTEXT（≤500ms）
 - 首页 FCP ≤ 1.5s，文章页加载 ≤ 2s
 
 ## 7. 代码规范
@@ -189,7 +197,10 @@ QzhouBlog/
 ## 9. 环境变量
 
 参考 .env.example:
-- DATABASE_URL - PostgreSQL 连接串
+- DATABASE_URL - MySQL 连接串
 - NEXTAUTH_URL - 认证回调地址
 - GITHUB_ID / GITHUB_SECRET - GitHub OAuth
 - MINIO_ENDPOINT / MINIO_ACCESS_KEY / MINIO_SECRET_KEY - 对象存储
+
+
+

@@ -1,0 +1,5 @@
+
+    expect(received).toBe(expected) // Object.is equality
+    Expected: "go-bing-fa-bian-cheng"
+    Received: "go-bing-fa-bian-cheng-"
+

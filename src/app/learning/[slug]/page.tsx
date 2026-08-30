@@ -6,6 +6,7 @@ import { Header } from '@/components/layout/Header'
 import { Footer } from '@/components/layout/Footer'
 import { Container, Section, PageTitle } from '@/components/layout/Container'
 import { db, schema } from '@/lib/db'
+import { decodeParam } from '@/lib/utils'
 
 interface PageProps {
   params: Promise<{ slug: string }>
@@ -13,7 +14,7 @@ interface PageProps {
 
 async function getPathBySlug(slug: string) {
   return await db.query.learningPaths.findFirst({
-    where: eq(schema.learningPaths.slug, slug),
+    where: eq(schema.learningPaths.slug, decodeParam(slug)),
     with: {
       nodes: {
         orderBy: [desc(schema.learningNodes.sortOrder)],

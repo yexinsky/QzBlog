@@ -1,6 +1,10 @@
 import type { Metadata } from 'next'
 import { ThemeProvider } from '@/hooks/useTheme'
 import { ToastProvider } from '@/components/ui/Toast'
+// KaTeX 数学公式样式（文章/预览中的 $...$ 与 $$...$$ 渲染必需）
+import 'katex/dist/katex.min.css'
+// highlight.js 代码高亮主题；暗色模式的覆盖见 globals.css
+import 'highlight.js/styles/github.css'
 import './globals.css'
 
 export const metadata: Metadata = {

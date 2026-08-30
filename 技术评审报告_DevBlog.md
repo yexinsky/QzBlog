@@ -1,5 +1,7 @@
 # DevBlog 个人博客 — 技术评审报告
 
+> 注：本文保留早期架构评审记录；当前项目最终数据库已切换为 MySQL 8.0，冲突内容以“产品经理决策反馈”和正式 PRD 为准。
+
 ---
 
 | 文档信息 | |
@@ -21,12 +23,12 @@
 | 第一轮 | 运维方案 | 公司自有服务器 + 域名，Docker Compose 部署 |
 | 第一轮 | 设计风格 | Anthropic 极简温柔风，全套配色/排版规范已入 PRD 第 8 章 |
 | 第一轮 | 架构转向 | 内容管理改为在线 Markdown 编辑器，all-in-one 模式 |
-| 第一轮 | 数据库 | 直接使用 PostgreSQL，跳过 SQLite |
+| 第一轮 | 数据库 | 直接使用 MySQL，跳过 SQLite |
 | 第一轮 | 反垃圾策略 | 延至 v1.2 |
 | 第二轮 | 评论方案 | **自建评论系统**，不走 Giscus |
 | 第二轮 | 图片存储 | **MinIO 自建对象存储**，不走服务器本地文件 |
 | 第二轮 | 认证方式 | **仅 GitHub OAuth**，NextAuth.js 实现，不走邮箱密码 |
-| 第二轮 | 搜索方案 | **PostgreSQL 全文检索**（tsvector + pg_trgm），不走 Fuse.js/MeiliSearch |
+| 第二轮 | 搜索方案 | **MySQL 全文检索**（FULLTEXT + ngram parser），不走 Fuse.js/MeiliSearch |
 
 以上全部决策已同步更新至 PRD。
 
@@ -169,7 +171,7 @@ CDN (Vercel Edge Network)
   ├── 内容源：本地 Markdown 文件 + Git + content-collections
   │
   └── 数据层
-        ├── PostgreSQL (评论、点赞、统计、配置)
+        ├── MySQL (评论、点赞、统计、配置)
         ├── Fuse.js (v1.0 搜索) / MeiliSearch (v1.1)
         └── Redis (v1.2, 会话缓存 + 频率限制)
 
@@ -186,7 +188,7 @@ CI/CD: GitHub → GitHub Actions → Vercel Deploy
 | 评论系统 | 自建 / Giscus | **v1.0 用 Giscus** | 零运维、GitHub 账号防垃圾、快速上线 |
 | 搜索 | Fuse.js / MeiliSearch | **v1.0 Fuse.js，v1.1 MeiliSearch** | 百篇文章内客户端搜索足够 |
 | 统计 | 自建 / Umami | **Umami（自部署）** | 比自建省大量开发时间 |
-| 数据库 | SQLite / PostgreSQL | **v1.0 SQLite，v1.1 迁移 PostgreSQL** | MVP 无并发写入压力 |
+| 数据库 | SQLite / MySQL | **v1.0 SQLite，v1.1 迁移 MySQL** | MVP 无并发写入压力 |
 | 语法高亮 | Shiki / Prism | **Shiki** | SSR 友好、VS Code 同款准确性 |
 | 部署 | Vercel / Netlify | **Vercel（优选）** | ISR/Edge/Image Optimization 支持最完整 |
 
@@ -212,7 +214,7 @@ PRD 中存在一个**关键矛盾**：既期望「本地 Markdown + Git」的开
 |------|------|------|
 | 域名 | 公司提供 | $0 |
 | 服务器 | 公司提供 | $0 |
-| 数据库 | PostgreSQL Docker 容器 | $0 |
+| 数据库 | MySQL Docker 容器 | $0 |
 | 图片存储 | 服务器本地 / MinIO | $0 |
 | 搜索 | Fuse.js（v1.0）/ MeiliSearch Docker（v1.1） | $0 |
 | CI/CD | GitHub Actions（自托管 Runner 连公司服务器） | $0 |
@@ -228,7 +230,7 @@ PRD 中存在一个**关键矛盾**：既期望「本地 Markdown + Git」的开
 ### 4.7 架构师改进建议（精选 3 条）
 
 1. **补充数据模型设计章节：** PRD 完全没有数据表定义。至少需要覆盖 `posts`、`comments`、`tags`、`series`、`learning_nodes` 5 个核心实体的字段和关系。
-2. **引入 ORM 而非裸写 SQL：** 推荐 Drizzle ORM（比 Prisma 更轻量），支持 SQLite → PostgreSQL 平滑迁移。
+2. **引入 ORM 而非裸写 SQL：** 推荐 Drizzle ORM（比 Prisma 更轻量），支持 SQLite → MySQL 平滑迁移。
 3. **建立可扩展性的「低成本预留」：** 数据模型预留 `user_id`、API 从 v1.0 开始版本化（`/api/v1/`）、Markdown 渲染管线预留 hook（beforeRender/afterRender）。
 
 ---
@@ -244,7 +246,7 @@ PRD 中存在一个**关键矛盾**：既期望「本地 Markdown + Git」的开
 | 3 | v1.0 范围过宽 | 学习路线从 v1.0 移除，延至 v1.1 | ✅ |
 | 4 | 评论方案待选型 | 决策：自建评论系统 | ✅ |
 | 5 | 认证方案 | 决策：GitHub OAuth + NextAuth.js | ✅ |
-| 6 | 搜索方案 | 决策：PostgreSQL 全文检索 | ✅ |
+| 6 | 搜索方案 | 决策：MySQL 全文检索 | ✅ |
 | 7 | 图片存储方案 | 决策：MinIO 自建对象存储 | ✅ |
 | 8 | 编辑器边界状态缺失 | 骨架屏、保存失败、断网恢复、定时发布取消窗口 | ⚠️ |
 
@@ -282,7 +284,7 @@ PRD 中存在一个**关键矛盾**：既期望「本地 Markdown + Git」的开
 
 产品经理作出三项架构决策后，技术架构师进行了专项二次评审：
 1. 内容管理方式改为 on-line Markdown 编辑器（all-in-one）
-2. 数据库直接使用 PostgreSQL，跳过 SQLite
+2. 数据库直接使用 MySQL，跳过 SQLite
 3. 部署至公司自有服务器 + Docker Compose
 
 ### A.1 转向结论
@@ -293,19 +295,19 @@ PRD 中存在一个**关键矛盾**：既期望「本地 Markdown + Git」的开
 |---------|-----------|---------|
 | 编辑器子系统 | 严重低估 | CodeMirror 6 与 React SSR 集成、大文档渲染、30s 自动保存竞态、移动端不可用 |
 | 自有服务器运维 | 严重低估 | 替代 Vercel 后 ISR 策略需重构、Nginx/Caddy/SSL/日志/监控全部需自建 |
-| 数据安全基线 | 中度低估 | 从 Git 天然保障降为纯工程保障，必须有 pg_dump 全量备份策略兜底 |
+| 数据安全基线 | 中度低估 | 从 Git 天然保障降为纯工程保障，必须有 mysqldump 全量备份策略兜底 |
 
 ### A.2 上线前必做三项准备
 
-1. **补充数据模型设计（含 content_md + content_html 双字段）** — 架构转向后所有内容存储在 PostgreSQL，数据表结构直接影响系统可靠性
+1. **补充数据模型设计（含 content_md + content_html 双字段）** — 架构转向后所有内容存储在 MySQL，数据表结构直接影响系统可靠性
 2. **编辑器边界状态设计** — 骨架屏、自动保存失败提示、断网本地缓存恢复、定时发布取消窗口
-3. **数据备份方案落地** — pg_dump 每日全量 + 远程归档至 MinIO + 恢复手册文档化
+3. **数据备份方案落地** — mysqldump 每日全量 + 远程归档至 MinIO + 恢复手册文档化
 
 ### A.3 新增高优先级风险
 
 - **在线编辑器预览区 XSS**：用户编辑 Markdown 时预览区若未 sanitize，可在发布前就触发 XSS。需统一发布/预览两端的 sanitize 管线
 - **API 未认证访问后台**：`/api/admin/*` 直接操作数据库，认证绕过等于全站泄漏。需 Next.js Middleware 统一拦截
-- **PostgreSQL 端口暴露**：5432 端口如暴露至公网会直接被扫描，需 Docker 内部网络隔离
+- **MySQL 端口暴露**：3306 端口如暴露至公网会直接被扫描，需 Docker 内部网络隔离
 
 ### A.4 运维三件套清单
 
@@ -320,3 +322,4 @@ Nginx/Caddy 反向代理 + SSL 自动续期 + Docker Compose 容器编排。ISR 
 - 技术架构师（含二次评审）
 
 **日期：** 2026-05-11
+

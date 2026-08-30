@@ -290,7 +290,7 @@
       "description": "作为开发者，我需要配置 Docker Compose 以便一键部署博客。",
       "acceptanceCriteria": [
         "创建 Dockerfile（Next.js 应用）",
-        "创建 docker-compose.yml（应用、PostgreSQL、MinIO）",
+        "创建 docker-compose.yml（应用、MySQL、MinIO）",
         "配置 Nginx/Caddy 反向代理",
         "配置 HTTPS",
         "环境变量管理",
@@ -301,3 +301,5 @@
     }
   ]
 }
+
+

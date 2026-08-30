@@ -1,5 +1,7 @@
 # 后端评审报告：个人博客网站（DevBlog）PRD
 
+> 注：本文保留早期 PostgreSQL 评审记录，当前项目最终数据库已切换为 MySQL 8.0；除特别标注外，文中的 PostgreSQL 结论仅作为历史留档。
+
 **评审对象：** PRD v1.0（2026-05-10）
 **评审视角：** 后端开发 + 数据架构
 **评审日期：** 2026-05-11
@@ -64,7 +66,7 @@ PageView (N) ──→ Post/NULL   [统计: PV/UV, 时间, 来源]
 
 5. **点赞防重复：** `post_likes` 表按 IP + 日期作为唯一键（或唯一索引），但 IP 可能变化（NAT/移动网络），这不是可靠维度。更好的方案：使用浏览器指纹 + 日期做复合去重，或在未来引入用户体系后以用户 ID 去重。
 
-6. **统计数据的存储策略：** `page_views` 表每次访问写入一行，日 PV 10 万时单表压力大。建议采用写入时先写 Redis INCR 缓存，定时任务批量刷入 PostgreSQL；或者直接使用 `visitor_stats_daily` 聚合表，按小时写入。
+6. **统计数据的存储策略：** `page_views` 表每次访问写入一行，日 PV 10 万时单表压力大。建议采用写入时先写 Redis INCR 缓存，定时任务批量刷入 MySQL；或者直接使用 `visitor_stats_daily` 聚合表，按小时写入。
 
 ---
 
@@ -153,9 +155,9 @@ PageView (N) ──→ Post/NULL   [统计: PV/UV, 时间, 来源]
 | PRD 推荐项 | 评价 | 建议 |
 |-----------|------|------|
 | **Next.js** | 全栈框架，API Routes 可直接充当后端，单项目即可覆盖前后端。Isr/SSG/SSR 三模兼备，SEO 友好。 | 合理选择。注意：Next.js API Routes 是 serverless 函数，不适合长连接或 heavy 后台任务，这部分需分离到独立进程或单独的 Worker。 |
-| **SQLite** | 单用户博客用 SQLite 够用，零运维、备份简单（一个文件）。 | 短期可行，长期考虑 PostgreSQL。SQLite 不支持并发写、没有行级锁，如果后续开启评论/点赞多用户写入场景，SQLite 会成为瓶颈。建议从 MVP 开始就使用 PostgreSQL（可通过 Docker 本地跑），避免后期迁移成本。 |
-| **PostgreSQL** | 功能完备，支持 JSON、全文检索（tsvector）、窗口函数、并发写，与 Prisma/Drizzle ORM 集成好。 | 强烈推荐。即使单用户场景，PostgreSQL 的全文检索能力可以减少对 MeiliSearch 的依赖（见下文）。 |
-| **MeiliSearch** | 全文搜索引擎，部署轻量，搜索体验好。 | 对于单用户博客，引入独立搜索服务过于重量。替代方案：1) PostgreSQL tsvector 全文检索（已满足 PRD 搜索需求）；2) 如果已用 Next.js + SSG，可在构建时生成静态搜索索引（如 Fuse.js 客户端搜索）。仅当文章数 > 1000 篇且对搜索相关度有高要求时才考虑 MeiliSearch。 |
+| **SQLite** | 单用户博客用 SQLite 够用，零运维、备份简单（一个文件）。 | 短期可行，长期考虑 MySQL。SQLite 不支持并发写、没有行级锁，如果后续开启评论/点赞多用户写入场景，SQLite 会成为瓶颈。建议从 MVP 开始就使用 MySQL（可通过 Docker 本地跑），避免后期迁移成本。 |
+| **MySQL** | 功能完备，支持 JSON、全文检索（FULLTEXT 索引）、窗口函数、并发写，与 Prisma/Drizzle ORM 集成好。 | 强烈推荐。即使单用户场景，MySQL 的全文检索能力可以减少对 MeiliSearch 的依赖（见下文）。 |
+| **MeiliSearch** | 全文搜索引擎，部署轻量，搜索体验好。 | 对于单用户博客，引入独立搜索服务过于重量。v1.0 先用 MySQL `LIKE`，正式全文搜索应验证 `FULLTEXT + ngram parser` 的中文效果；仅在文章规模和相关度要求明显提高后考虑 MeiliSearch。 |
 | **自建统计** | 无可厚非，但需注意写入性能。 | 建议采用「Nginx 日志分析」或「中间件+Redis 缓存计数+定时落库」架构，避免每次页面访问都直接写数据库。 |
 
 ### 3.2 替代方案推荐
@@ -301,7 +303,7 @@ PRD 是典型的单用户博客，但后端架构应以「最小成本预留多�
 
 **建议方案：**
 - 采用 Prisma Migrate 或 Drizzle Kit 做声明式迁移，所有变更通过 Migration 文件版本化
-- 本地开发：Docker Compose 启动 PostgreSQL + MeiliSearch（如果选型使用）+ MinIO（本地 S3 替代），一键启动开发环境
+- 本地开发：Docker Compose 启动 MySQL + MeiliSearch（如果选型使用）+ MinIO（本地 S3 替代），一键启动开发环境
 
 ### 建议 5：明确数据统计的 UV 识别方案
 
@@ -317,3 +319,4 @@ PRD 是典型的单用户博客，但后端架构应以「最小成本预留多�
 
 **评审人：** 后端开发工程师
 **日期：** 2026-05-11
+

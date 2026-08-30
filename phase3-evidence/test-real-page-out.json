@@ -1,0 +1,10 @@
+Posts response (first 500 chars): {
+  "posts": [],
+  "pagination": {
+    "page": 1,
+    "limit": 10,
+    "total": 0,
+    "totalPages": 0
+  }
+}
+No published posts found in API response

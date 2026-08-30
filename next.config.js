@@ -1,12 +1,17 @@
 /** @type {import('next').NextConfig} */
 const isProduction = process.env.NODE_ENV === 'production';
 
+// Image hosts must stay in sync with the S3/MinIO public URL configured in .env
+// (S3_PUBLIC_URL / MINIO_PUBLIC_URL). Both the bare host and the loopback alias are
+// allowed so uploads stay renderable whether the bucket is addressed locally or via LAN.
+const storageImageHosts = ['http://192.168.5.2:9000', 'http://localhost:9000'];
+
 const contentSecurityPolicy = [
   "default-src 'self'",
   // Next.js currently requires inline styles; unsafe-eval is development-only for source maps/HMR.
   `script-src 'self' 'unsafe-inline'${isProduction ? '' : " 'unsafe-eval'"}`,
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https://avatars.githubusercontent.com http://localhost:9000",
+  `img-src 'self' data: blob: https://avatars.githubusercontent.com ${storageImageHosts.join(' ')}`,
   "font-src 'self' data:",
   "connect-src 'self'" + (isProduction ? '' : ' ws: wss:'),
   "media-src 'self'",
@@ -37,6 +42,7 @@ const nextConfig = {
     remotePatterns: [
       { protocol: 'https', hostname: 'avatars.githubusercontent.com' },
       { protocol: 'http', hostname: 'localhost', port: '9000' },
+      { protocol: 'http', hostname: '192.168.5.2', port: '9000' },
     ],
     unoptimized: true,
   },

@@ -13,12 +13,13 @@ const createPostSchema = z.object({
   title: z.string().trim().min(1).max(255),
   contentMd: z.string().min(1),
   summary: z.string().max(500).optional(),
-  coverImage: z.string().url().optional(),
+  coverImage: z.string().url().optional().nullable(),
   status: z.enum(['draft', 'published', 'scheduled']).default('draft'),
   scheduledAt: z.string().datetime().optional(),
   tagIds: z.array(z.string().uuid()).max(50).default([]),
   seriesId: z.string().uuid().optional(),
   seriesOrder: z.number().int().min(0).max(1_000_000).default(0),
+  isPinned: z.boolean().default(false),
 }).superRefine((data, ctx) => {
   if (data.status === 'scheduled' && !data.scheduledAt) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['scheduledAt'], message: 'scheduledAt is required for scheduled posts' });
@@ -142,7 +143,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session?.user?.id || session.user.role !== 'admin') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const validatedData = createPostSchema.parse(await request.json());
     const tagIds = await validateRelations(validatedData.tagIds, validatedData.seriesId);
@@ -166,6 +167,7 @@ export async function POST(request: NextRequest) {
         contentHtml,
         summary: validatedData.summary ?? generateSummary(validatedData.contentMd),
         coverImage: validatedData.coverImage,
+        isPinned: validatedData.isPinned,
         status: validatedData.status,
         scheduledAt,
         publishedAt,
@@ -185,3 +187,4 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to create post' }, { status: 500 });
   }
 }
+

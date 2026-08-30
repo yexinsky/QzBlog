@@ -89,3 +89,77 @@
     @apply bg-transparent border border-border-strong text-text-primary hover:bg-background-hover;
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * 文章正文排版（prose）补丁
+ * @tailwindcss/typography 提供基础排版；这里补充站点主题色适配与暗色模式下的
+ * 代码高亮配色（highlight.js github 主题的暗色覆盖）。
+ * ------------------------------------------------------------------------- */
+.dark .hljs {
+  color: #c9d1d9;
+  background: transparent;
+}
+.dark .hljs-comment,
+.dark .hljs-quote {
+  color: #8b949e;
+  font-style: italic;
+}
+.dark .hljs-keyword,
+.dark .hljs-selector-tag,
+.dark .hljs-subst {
+  color: #ff7b72;
+}
+.dark .hljs-string,
+.dark .hljs-doctag,
+.dark .hljs-regexp {
+  color: #a5d6ff;
+}
+.dark .hljs-number,
+.dark .hljs-literal,
+.dark .hljs-variable,
+.dark .hljs-template-variable,
+.dark .hljs-attr {
+  color: #79c0ff;
+}
+.dark .hljs-title,
+.dark .hljs-section,
+.dark .hljs-name,
+.dark .hljs-selector-id,
+.dark .hljs-selector-class {
+  color: #7ee787;
+}
+.dark .hljs-built_in,
+.dark .hljs-builtin-name,
+.dark .hljs-type,
+.dark .hljs-params {
+  color: #ffa657;
+}
+.dark .hljs-meta,
+.dark .hljs-link {
+  color: #8b949e;
+}
+.dark .hljs-deletion {
+  color: #ffa198;
+  background: rgba(248, 81, 73, 0.15);
+}
+.dark .hljs-addition {
+  color: #7ee787;
+  background: rgba(46, 160, 67, 0.15);
+}
+
+/* 代码块容器：明暗两套底色 */
+.prose pre {
+  background: #f6f8fa;
+}
+.dark .prose pre {
+  background: #161b22;
+}
+.prose pre code {
+  background: transparent;
+  padding: 0;
+}
+
+/* 行内 KaTeX 与正文基线对齐 */
+.prose .katex {
+  font-size: 1.05em;
+}

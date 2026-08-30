@@ -3,16 +3,11 @@
 import React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, LayoutDashboard, PenTool, Image, MessageSquare, User } from 'lucide-react'
+import { signOut } from 'next-auth/react'
+import { Home, LayoutDashboard, PenTool, Image, MessageSquare, User, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-interface NavItem {
-  icon: React.ElementType
-  label: string
-  href: string
-  badge?: number
-}
-
+interface NavItem { icon: React.ElementType; label: string; href: string; badge?: number }
 const adminNavItems: NavItem[] = [
   { icon: LayoutDashboard, label: '仪表盘', href: '/admin' },
   { icon: PenTool, label: '文章管理', href: '/admin/posts' },
@@ -21,52 +16,31 @@ const adminNavItems: NavItem[] = [
   { icon: User, label: '个人资料', href: '/admin/profile' },
 ]
 
-interface AdminSidebarProps {
-  className?: string
-}
-
-export const AdminSidebar: React.FC<AdminSidebarProps> = ({ className }) => {
+export const AdminSidebar: React.FC<{ className?: string }> = ({ className }) => {
   const pathname = usePathname()
-
   return (
     <aside className={cn('w-64 shrink-0 bg-background-base border-r border-border min-h-screen sticky top-0', className)}>
       <div className="p-6 border-b border-border">
         <Link href="/admin" className="flex items-center space-x-2">
-          <div className="w-8 h-8 bg-brand-orange rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-lg">Q</span>
-          </div>
+          <div className="w-8 h-8 bg-brand-orange rounded-lg flex items-center justify-center"><span className="text-white font-bold text-lg">Q</span></div>
           <span className="text-xl font-bold text-text-primary">管理后台</span>
         </Link>
       </div>
-
       <nav className="p-4 space-y-1">
         {adminNavItems.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                'flex items-center space-x-3 px-4 py-3 rounded-button transition-colors',
-                isActive ? 'bg-brand-orange text-white' : 'text-text-secondary hover:bg-background-hover'
-              )}
-            >
-              <item.icon className="w-5 h-5" />
-              <span className="font-medium">{item.label}</span>
-              {item.badge ? <span className="ml-auto px-2 py-0.5 text-xs bg-red-500 text-white rounded-full">{item.badge}</span> : null}
-            </Link>
-          )
+          return <Link key={item.href} href={item.href} className={cn('flex items-center space-x-3 px-4 py-3 rounded-button transition-colors', isActive ? 'bg-brand-orange text-white' : 'text-text-secondary hover:bg-background-hover')}>
+            <item.icon className="w-5 h-5" /><span className="font-medium">{item.label}</span>
+            {item.badge ? <span className="ml-auto px-2 py-0.5 text-xs bg-red-500 text-white rounded-full">{item.badge}</span> : null}
+          </Link>
         })}
-
         <div className="h-px bg-border my-4" />
-
-        <Link
-          href="/"
-          className="flex items-center space-x-3 px-4 py-3 rounded-button text-text-secondary hover:bg-background-hover transition-colors"
-        >
-          <Home className="w-5 h-5" />
-          <span className="font-medium">返回前台</span>
+        <Link href="/" className="flex items-center space-x-3 px-4 py-3 rounded-button text-text-secondary hover:bg-background-hover transition-colors">
+          <Home className="w-5 h-5" /><span className="font-medium">返回前台</span>
         </Link>
+        <button type="button" onClick={() => void signOut({ callbackUrl: '/admin/login' })} className="w-full flex items-center space-x-3 px-4 py-3 rounded-button text-text-secondary hover:bg-background-hover transition-colors">
+          <LogOut className="w-5 h-5" /><span className="font-medium">退出登录</span>
+        </button>
       </nav>
     </aside>
   )

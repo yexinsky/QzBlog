@@ -22,7 +22,7 @@ export async function POST(
     const { slug } = await params
     const session = await getServerSession(authOptions);
 
-    if (!session?.user) {
+    if (!session?.user || session.user.role !== 'admin') {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -46,7 +46,7 @@ export async function POST(
     }
 
     // 确保是草稿状态或用户是作者
-    if (existingPost.authorId !== session.user.id && session.user.role !== 'admin') {
+    if (session.user.role !== 'admin') {
       return NextResponse.json(
         { error: 'Forbidden' },
         { status: 403 }
@@ -125,7 +125,7 @@ export async function GET(
     const { slug } = await params
     const session = await getServerSession(authOptions);
 
-    if (!session?.user) {
+    if (!session?.user || session.user.role !== 'admin') {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -163,7 +163,7 @@ export async function GET(
         where: eq(schema.posts.id, id),
       });
 
-      if (existingPost && existingPost.authorId !== session.user.id && session.user.role !== 'admin') {
+      if (existingPost && session.user.role !== 'admin') {
         return NextResponse.json(
           { error: 'Post not found' },
           { status: 404 }

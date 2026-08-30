@@ -7,8 +7,7 @@ import rehypeKatex from 'rehype-katex';
 import rehypeHighlight from 'rehype-highlight';
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import rehypeStringify from 'rehype-stringify';
-import { codeToHtml, getHighlighter } from 'shiki';
-import { createHighlighter } from 'shiki';
+import { visit } from 'unist-util-visit';
 
 // 预定义支持的语言列表
 const SUPPORTED_LANGUAGES = [
@@ -23,6 +22,9 @@ const SUPPORTED_LANGUAGES = [
  */
 const sanitizeSchema = {
   ...defaultSchema,
+  // 站点内容为管理员撰写，标题锚点 id 保留原样（不加 user-content- 前缀），
+  // 否则 TOC 的 #锚点 与正文 id 不一致导致跳转失效。
+  clobberPrefix: '',
   tagNames: [...(defaultSchema.tagNames ?? []), 'span', 'div', 'mark', 'abbr'],
   attributes: {
     ...defaultSchema.attributes,
@@ -30,44 +32,47 @@ const sanitizeSchema = {
     pre: [...(defaultSchema.attributes?.pre || []), 'className', 'class'],
     span: [...(defaultSchema.attributes?.span || []), 'className', 'class'],
     a: [...(defaultSchema.attributes?.a || []), 'href', 'target', 'rel'],
+    // KaTeX 的上下标定位完全依赖行内 style（height/top/margin-left 等），
+    // 必须放行，否则公式排版塌陷。
+    div: [...(defaultSchema.attributes?.div || []), 'className', 'class', 'style'],
+    // Heading anchor ids must survive sanitization so the TOC can deep-link.
+    h1: ['id'],
+    h2: ['id'],
+    h3: ['id'],
+    h4: ['id'],
+    h5: ['id'],
+    h6: ['id'],
   },
 };
+// KaTeX 输出大量带行内样式的 span；在上面 span 数组基础上追加 style。
+sanitizeSchema.attributes.span = [...(sanitizeSchema.attributes.span || []), 'style'];
 
 /**
- * 初始化shiki高亮器
+ * 给 h1-h6 添加与 extractToc/generateHeadingId 一致的 id，供目录跳转使用。
  */
-let highlighterPromise: Promise<any> | null = null;
-
-async function getShikiHighlighter() {
-  if (!highlighterPromise) {
-    highlighterPromise = createHighlighter({
-      themes: ['github-light', 'github-dark'],
-      langs: SUPPORTED_LANGUAGES,
+function rehypeHeadingIds() {
+  return (tree: unknown) => {
+    const seen = new Map<string, number>();
+    visit(tree as never, 'element', (node: { tagName?: string; properties?: Record<string, unknown>; children?: unknown[] }) => {
+      if (!node.tagName || !/^h[1-6]$/.test(node.tagName)) return;
+      node.properties = node.properties ?? {};
+      if (typeof node.properties.id === 'string' && node.properties.id !== '') return;
+      const text = collectText(node);
+      let id = generateHeadingId(text) || 'section';
+      const count = seen.get(id) ?? 0;
+      seen.set(id, count + 1);
+      if (count > 0) id = `${id}-${count}`;
+      node.properties.id = id;
     });
-  }
-  return highlighterPromise;
+  };
 }
 
-/**
- * 使用Shiki进行代码高亮（带主题支持）
- */
-async function highlightWithShiki(code: string, lang: string, isDark: boolean): Promise<string> {
-  try {
-    const highlighter = await getShikiHighlighter();
-    const theme = isDark ? 'github-dark' : 'github-light';
-    const validLang = SUPPORTED_LANGUAGES.includes(lang) ? lang : 'text';
-
-    const html = await highlighter.codeToHtml(code, {
-      lang: validLang,
-      theme,
-    });
-
-    return html;
-  } catch (error) {
-    console.error('Shiki highlight error:', error);
-    // 降级处理：使用rehype-highlight
-    return `<pre class="hljs"><code>${escapeHtml(code)}</code></pre>`;
-  }
+function collectText(node: { children?: unknown[] }): string {
+  let out = '';
+  visit(node as never, 'text', (n: { value?: unknown }) => {
+    out += typeof n.value === 'string' ? n.value : '';
+  });
+  return out;
 }
 
 /**
@@ -99,6 +104,9 @@ export async function renderMarkdown(
     .use(remarkMath)
     .use(remarkRehype, { allowDangerousHtml: false })
     .use(rehypeKatex)
+    // highlight.js 语法高亮；未知语言静默跳过，避免渲染失败
+    .use(rehypeHighlight, { detect: false, ignoreMissing: true })
+    .use(rehypeHeadingIds)
     .use(rehypeSanitize, sanitizeSchema)
     .use(rehypeStringify);
 
@@ -146,12 +154,17 @@ export interface TocItem {
 export function extractToc(content: string): TocItem[] {
   const toc: TocItem[] = [];
   const headingRegex = /^(#{1,4})\s+(.+)$/gm;
+  const seen = new Map<string, number>();
   let match;
 
   while ((match = headingRegex.exec(content)) !== null) {
     const level = match[1].length;
     const text = match[2].trim();
-    const id = generateHeadingId(text);
+    // 与 rehypeHeadingIds 使用同一套去重规则，保证目录 id 与正文锚点一致
+    let id = generateHeadingId(text) || 'section';
+    const count = seen.get(id) ?? 0;
+    seen.set(id, count + 1);
+    if (count > 0) id = `${id}-${count}`;
 
     toc.push({
       id,
@@ -180,6 +193,21 @@ export function extractToc(content: string): TocItem[] {
   }
 
   return result;
+}
+
+/**
+ * 将层级 TOC 树摊平为带缩进层级的列表，供目录组件按顺序渲染全部条目
+ */
+export function flattenToc(items: TocItem[]): Array<{ id: string; text: string; level: number }> {
+  const out: Array<{ id: string; text: string; level: number }> = [];
+  const walk = (nodes: TocItem[]) => {
+    for (const item of nodes) {
+      out.push({ id: item.id, text: item.text, level: item.level });
+      if (item.children.length > 0) walk(item.children);
+    }
+  };
+  walk(items);
+  return out;
 }
 
 /**
@@ -290,6 +318,7 @@ export default {
   renderMarkdown,
   renderCommentMarkdown,
   extractToc,
+  flattenToc,
   generateHeadingId,
   countWords,
   generateSummary,

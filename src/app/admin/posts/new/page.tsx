@@ -1,4 +1,2 @@
 import { AdminPostEditor } from '../shared'
-export default function NewPostPage() { return <AdminPostEditor mode="create" /> }
-
-
+export default async function NewPostPage() { return <AdminPostEditor mode="create" /> }

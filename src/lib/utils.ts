@@ -5,6 +5,19 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+/**
+ * Resolve a dynamic-route param to its raw value. Next.js page params arrive
+ * percent-encoded for non-ASCII segments (route handlers decode automatically,
+ * pages do not), so DB lookups must decode before comparing.
+ */
+export function decodeParam(value: string): string {
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return value
+  }
+}
+
 export function formatDate(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date
   return new Intl.DateTimeFormat('zh-CN', {

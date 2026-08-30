@@ -1,0 +1,27 @@
+[
+  {
+    "stage": "initial-before-mount",
+    "htmlClass": "light",
+    "localStorage": null
+  },
+  {
+    "stage": "after-mount",
+    "htmlClass": "light",
+    "localStorage": "light"
+  },
+  {
+    "stage": "after-toggle-1",
+    "htmlClass": "dark",
+    "localStorage": "dark"
+  },
+  {
+    "stage": "after-toggle-2",
+    "htmlClass": "light",
+    "localStorage": "light"
+  },
+  {
+    "stage": "reload-with-localStorage-dark",
+    "htmlClass": "dark",
+    "localStorage": "dark"
+  }
+]
