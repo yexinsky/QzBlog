@@ -263,8 +263,12 @@ export function generateSummary(content: string, maxLength: number = 200): strin
   const withoutLinks = withoutImages.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
   // 移除标题符号
   const withoutHeadings = withoutLinks.replace(/^#+\s+/gm, '');
+  // 移除强调标记（**加粗**、__加粗__、*斜体*、~~删除线~~），保证摘要为纯文本
+  const withoutEmphasis = withoutHeadings
+    .replace(/(\*\*\*|~~|\*\*|__)([^\n]*?)\1/g, '$2')
+    .replace(/(\*|_)([^*_\n]+)\1/g, '$2');
   // 移除多个空格和换行
-  const cleaned = withoutHeadings.replace(/\s+/g, ' ').trim();
+  const cleaned = withoutEmphasis.replace(/\s+/g, ' ').trim();
 
   if (cleaned.length <= maxLength) {
     return cleaned;

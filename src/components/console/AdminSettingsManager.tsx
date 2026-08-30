@@ -29,6 +29,8 @@ export type AdminSettings = {
   feishuWebhookUrl: string | null;
   feishuSecretSet: boolean;
   feishuEvents: string[];
+  // 备份（PRD 11.11）
+  backupKeepCount: number;
 };
 
 const FEISHU_EVENT_OPTIONS = [
@@ -72,6 +74,7 @@ export function AdminSettingsManager({ initialSettings }: { initialSettings: Adm
       feishuWebhookUrl: settings.feishuWebhookUrl?.trim() || null,
       feishuSecret: feishuSecretInput ? feishuSecretInput : settings.feishuSecretSet ? null : '',
       feishuEvents: settings.feishuEvents,
+      backupKeepCount: settings.backupKeepCount || 5,
     };
   }
 
@@ -230,6 +233,13 @@ export function AdminSettingsManager({ initialSettings }: { initialSettings: Adm
               </div>
             </fieldset>
             <p className="text-xs text-text-muted">消息以飞书卡片推送到群内，包含事件标题、摘要、时间与后台跳转链接；推送失败不阻塞主流程并自动记录日志。</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><h2 className="font-semibold text-text-primary">备份与恢复（v1.1）</h2></CardHeader>
+          <CardContent className="space-y-4">
+            <Input label="备份最大保留份数" type="number" min={1} max={100} value={settings.backupKeepCount} onChange={(e) => patch({ backupKeepCount: Number(e.target.value) || 5 })} helperText="超出份数时滚动淘汰最旧的备份（默认 5）" />
           </CardContent>
         </Card>
 

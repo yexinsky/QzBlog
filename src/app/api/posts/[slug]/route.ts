@@ -10,12 +10,13 @@ import { countWords, generateSummary, renderMarkdown } from '@/lib/markdown';
 import { globalRatelimit, withRatelimit } from '@/lib/rate-limit';
 import { fireNotify } from '@/lib/notify';
 import { createPostRevision } from '@/lib/revisions';
+import { siteImageUrl } from '@/lib/validation';
 
 const updatePostSchema = z.object({
   title: z.string().trim().min(1).max(255).optional(),
   contentMd: z.string().min(1).optional(),
   summary: z.string().max(500).optional(),
-  coverImage: z.string().url().optional().nullable(),
+  coverImage: siteImageUrl.optional().nullable(),
   status: z.enum(['draft', 'published', 'scheduled']).optional(),
   isPinned: z.boolean().optional(),
   // v1.1（PRD 11.5 / 11.6）
@@ -210,8 +211,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     });
 
     // v1.1（PRD 11.13）：内容变更时生成快照，上限 20 条滚动淘汰
-    if (updateData.contentMd !== undefined && updateData.title !== undefined) {
-      await createPostRevision(existingPost.id, updateData.title, updateData.contentMd, session.user.id).catch((error) => console.error('Failed to create revision:', error));
+    if (updateData.contentMd !== undefined) {
+      const revisionTitle = validatedData.title !== undefined ? validatedData.title : existingPost.title;
+      await createPostRevision(existingPost.id, revisionTitle, updateData.contentMd, session.user.id).catch((error) => console.error('Failed to create revision:', error));
     }
 
     const updatedPost = await db.query.posts.findFirst({ where: eq(schema.posts.id, existingPost.id) });

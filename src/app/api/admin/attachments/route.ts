@@ -57,9 +57,13 @@ export async function GET(request: NextRequest) {
   }
 }
 
-const batchDeleteSchema = z.object({ ids: z.array(z.string().uuid()).min(1).max(100) });
+const batchDeleteSchema = z.object({
+  ids: z.array(z.string().uuid()).min(1).max(100),
+  // v1.1（PRD 11.3）：check=true 仅做引用检查不删除，供前端「命中时二次确认」
+  check: z.boolean().optional(),
+});
 
-/** DELETE /api/admin/attachments — 批量删除附件（body: { ids }） */
+/** DELETE /api/admin/attachments — 批量删除附件（body: { ids, check? }） */
 export async function DELETE(request: NextRequest) {
   try {
     const auth = await requireAdmin();
@@ -98,6 +102,10 @@ export async function DELETE(request: NextRequest) {
         .where(or(like(schema.moments.content, `%${target.url}%`), eq(schema.moments.imageUrl, target.url))!);
       if (Number(momentBody?.count ?? 0) > 0) usages.push(`动态（${Number(momentBody.count)} 处）`);
       if (usages.length > 0) referenced.set(target.originalName, usages);
+    }
+
+    if (parsed.data.check) {
+      return NextResponse.json({ success: true, checkOnly: true, referenced: Object.fromEntries(referenced) });
     }
 
     let deletedFiles = 0;

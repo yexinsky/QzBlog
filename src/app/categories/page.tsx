@@ -13,6 +13,7 @@ export const metadata = {
 }
 
 export default async function CategoriesPage() {
+  // 表前缀必须写死（drizzle sql 模板渲染裸列名，跨表关联会指错作用域）
   const categories = await db
     .select({
       id: schema.categories.id,
@@ -20,9 +21,9 @@ export default async function CategoriesPage() {
       slug: schema.categories.slug,
       description: schema.categories.description,
       postCount: sql<number>`(
-        SELECT count(*) FROM ${schema.posts}
-        WHERE ${schema.posts.categoryId} = ${schema.categories.id}
-          AND ${schema.posts.status} = 'published'
+        SELECT count(*) FROM \`posts\`
+        WHERE \`posts\`.\`category_id\` = \`categories\`.\`id\`
+          AND \`posts\`.\`status\` = 'published'
       )`,
     })
     .from(schema.categories)
@@ -31,7 +32,7 @@ export default async function CategoriesPage() {
   const [uncategorized] = await db
     .select({ count: sql<number>`count(*)` })
     .from(schema.posts)
-    .where(sql`${schema.posts.categoryId} IS NULL AND ${schema.posts.status} = 'published'`)
+    .where(sql`\`posts\`.\`category_id\` IS NULL AND \`posts\`.\`status\` = 'published'`)
   const uncategorizedCount = Number(uncategorized?.count ?? 0)
 
   return (

@@ -7,10 +7,11 @@ import { authOptions } from '@/lib/auth';
 import { eq, desc, sql } from 'drizzle-orm';
 import { withRatelimit, momentRatelimit } from '@/lib/rate-limit';
 import { generateSummary } from '@/lib/markdown';
+import { siteImageUrl } from '@/lib/validation';
 
 const MAX_IMAGES = 9;
 
-const imageUrlSchema = z.string().trim().url('图片地址格式不正确').max(500);
+const imageUrlSchema = siteImageUrl;
 
 // v1.1（PRD 11.7）：动态支持 Markdown（纯文字仍限 500 字）与多图（≤9 张）。
 // content 保留为纯文本摘要；contentMd 为 Markdown 原文。

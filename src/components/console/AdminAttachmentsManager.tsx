@@ -42,8 +42,7 @@ export function AdminAttachmentsManager() {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
-  const [pendingDelete, setPendingDelete] = useState<{ ids: string[]; referenced?: Record<string, string[]> } | null>(null);
-  const [deleting, setDeleting] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<{ ids: string[]; referenced?: Record<string, string[]> } | null>(null);  const [deleting, setDeleting] = useState(false);
   const [groupForm, setGroupForm] = useState<{ id: string | null; displayName: string } | null>(null);
   const [savingGroup, setSavingGroup] = useState(false);
   const [message, setMessage] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
@@ -112,8 +111,24 @@ export function AdminAttachmentsManager() {
     }
   }
 
-  function requestBatchDelete(ids: string[]) {
-    setPendingDelete({ ids });
+  // v1.1（PRD 11.3）：删除前先做引用检查，命中时在确认弹窗中二次提示
+  async function requestBatchDelete(ids: string[]) {
+    setMessage(null);
+    let referenced: Record<string, string[]> = {};
+    try {
+      const response = await fetch('/api/admin/attachments', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids, check: true }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || '引用检查失败');
+      referenced = data.referenced ?? {};
+    } catch (error) {
+      setMessage({ kind: 'error', text: error instanceof Error ? error.message : '引用检查失败' });
+      return;
+    }
+    setPendingDelete({ ids, referenced });
   }
 
   async function confirmDelete() {
@@ -317,7 +332,13 @@ export function AdminAttachmentsManager() {
       <ConfirmDialog
         open={pendingDelete !== null}
         title="删除附件"
-        description={pendingDelete ? `确定删除选中的 ${pendingDelete.ids.length} 个附件吗？引用它们的文章与动态中的链接将失效。` : undefined}
+        description={
+          pendingDelete
+            ? `确定删除选中的 ${pendingDelete.ids.length} 个附件吗？${pendingDelete.referenced && Object.keys(pendingDelete.referenced).length > 0
+              ? `⚠️ 以下附件仍被引用，删除后相关链接将失效：${Object.entries(pendingDelete.referenced).map(([name, usages]) => `${name}（${usages.join('、')}）`).join('、')}。`
+              : '引用它们的文章与动态中的链接将失效。'}`
+            : undefined
+        }
         confirmText="确认删除"
         cancelText="取消"
         tone="danger"

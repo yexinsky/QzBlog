@@ -44,8 +44,22 @@ function zodErrorResponse(error: z.ZodError): NextResponse {
   );
 }
 
-// 点赞文章
+// 点赞：POST 按请求体自动分发（momentId → 动态，否则 → 文章）；
+// PUT 保留为动态点赞的兼容入口（v1.0 遗留约定）。
 export async function POST(request: NextRequest) {
+  const body = await request.json().catch(() => null);
+  if (body && typeof body === 'object' && 'momentId' in body) {
+    return likeMoment(request, body as { momentId: string });
+  }
+  return likePost(request, body as { postId: string });
+}
+
+export async function PUT(request: NextRequest) {
+  const body = await request.json().catch(() => null);
+  return likeMoment(request, body as { momentId: string });
+}
+
+async function likePost(request: NextRequest, rawBody: { postId: string }) {
   try {
     // 检查限流
     const ratelimitCheck = await withRatelimit(likeRatelimit)(request);
@@ -53,8 +67,7 @@ export async function POST(request: NextRequest) {
       return ratelimitCheck.response!;
     }
 
-    const body = await request.json();
-    const validatedData = likePostSchema.parse(body);
+    const validatedData = likePostSchema.parse(rawBody);
     const ipAddress = createAnonymousClientId(request);
     const today = getToday();
 
@@ -141,7 +154,7 @@ export async function POST(request: NextRequest) {
 }
 
 // 点赞动态
-export async function PUT(request: NextRequest) {
+async function likeMoment(request: NextRequest, rawBody: { momentId: string }) {
   try {
     // 检查限流
     const ratelimitCheck = await withRatelimit(likeRatelimit)(request);
@@ -149,8 +162,7 @@ export async function PUT(request: NextRequest) {
       return ratelimitCheck.response!;
     }
 
-    const body = await request.json();
-    const validatedData = likeMomentSchema.parse(body);
+    const validatedData = likeMomentSchema.parse(rawBody);
     const ipAddress = createAnonymousClientId(request);
     const today = getToday();
 

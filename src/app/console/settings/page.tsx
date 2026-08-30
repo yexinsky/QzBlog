@@ -31,6 +31,7 @@ export default async function AdminSettingsPage() {
         feishuWebhookUrl: settings.feishuWebhookUrl,
         feishuSecretSet: Boolean(settings.feishuSecret),
         feishuEvents: Array.isArray(settings.feishuEvents) ? settings.feishuEvents : [],
+        backupKeepCount: settings.backupKeepCount,
       }}
     />
   );

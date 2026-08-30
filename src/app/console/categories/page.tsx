@@ -16,10 +16,11 @@ export default async function AdminCategoriesPage() {
       slug: schema.categories.slug,
       description: schema.categories.description,
       sortOrder: schema.categories.sortOrder,
+      // 表前缀必须写死（drizzle sql 模板渲染裸列名，见 api/admin/categories 同处注释）
       postCount: sql<number>`(
-        SELECT count(*) FROM ${schema.posts}
-        WHERE ${schema.posts.categoryId} = ${schema.categories.id}
-          AND ${schema.posts.status} = 'published'
+        SELECT count(*) FROM \`posts\`
+        WHERE \`posts\`.\`category_id\` = \`categories\`.\`id\`
+          AND \`posts\`.\`status\` = 'published'
       )`,
     })
     .from(schema.categories)

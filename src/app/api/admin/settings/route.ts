@@ -33,6 +33,8 @@ const updateSettingsSchema = z.object({
   feishuWebhookUrl: urlLike.optional().nullable(),
   feishuSecret: z.string().max(500).optional().nullable(),
   feishuEvents: z.array(z.enum(['comment.pending', 'post.published', 'backup.completed', 'backup.failed'])).optional(),
+  // 备份保留份数（PRD 11.11）
+  backupKeepCount: z.number().int().min(1).max(100).optional(),
 }).strict();
 
 /** GET /api/admin/settings — 读取站点设置（敏感字段掩码） */
@@ -102,6 +104,7 @@ export async function PUT(request: NextRequest) {
       ...(data.feishuWebhookUrl !== undefined ? { feishuWebhookUrl: nullableString(data.feishuWebhookUrl) } : {}),
       ...(feishuSecretUpdate !== undefined ? { feishuSecret: feishuSecretUpdate } : {}),
       ...(data.feishuEvents !== undefined ? { feishuEvents: data.feishuEvents } : {}),
+      ...(data.backupKeepCount !== undefined ? { backupKeepCount: data.backupKeepCount } : {}),
       updatedAt: new Date(),
     };
 

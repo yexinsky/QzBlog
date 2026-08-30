@@ -6,9 +6,10 @@ import { authOptions } from '@/lib/auth';
 import { eq } from 'drizzle-orm';
 import { generateSummary } from '@/lib/markdown';
 import { requireAdmin } from '@/lib/admin-auth';
+import { siteImageUrl } from '@/lib/validation';
 
 const MAX_IMAGES = 9;
-const imageUrlSchema = z.string().trim().url('图片地址格式不正确').max(500);
+const imageUrlSchema = siteImageUrl;
 
 // v1.1（PRD 11.7）：更新支持 Markdown 原文与多图；content 同步刷新为纯文本摘要
 const updateMomentSchema = z.object({

@@ -52,8 +52,9 @@ const nextConfig = {
   async redirects() {
     return [
       // v1.1 后台路由迁移（PRD 11.1）：旧 /admin/** 地址 301 永久重定向至 /console/**
-      { source: '/admin', destination: '/console', permanent: true },
-      { source: '/admin/:path*', destination: '/console/:path*', permanent: true },
+      // 注意：permanent: true 返回 308，PRD 明确要求 301，故用 statusCode
+      { source: '/admin', destination: '/console', statusCode: 301 },
+      { source: '/admin/:path*', destination: '/console/:path*', statusCode: 301 },
     ];
   },
   async headers() {

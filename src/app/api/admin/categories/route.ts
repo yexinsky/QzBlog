@@ -33,10 +33,12 @@ export async function GET() {
         sortOrder: schema.categories.sortOrder,
         createdAt: schema.categories.createdAt,
         updatedAt: schema.categories.updatedAt,
+        // 注意：相关子查询必须写死表前缀 —— drizzle 的 sql 模板会把 Column 插值渲染成
+        // 不带表名的裸列名，跨表关联会指向子查询自身的作用域而得到错误结果。
         postCount: sql<number>`(
-          SELECT count(*) FROM ${schema.posts}
-          WHERE ${schema.posts.categoryId} = ${schema.categories.id}
-            AND ${schema.posts.status} = 'published'
+          SELECT count(*) FROM \`posts\`
+          WHERE \`posts\`.\`category_id\` = \`categories\`.\`id\`
+            AND \`posts\`.\`status\` = 'published'
         )`,
       })
       .from(schema.categories)

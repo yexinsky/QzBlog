@@ -10,12 +10,13 @@ import { countWords, generateSlug, generateSummary, renderMarkdown } from '@/lib
 import { globalRatelimit, withRatelimit } from '@/lib/rate-limit';
 import { fireNotify } from '@/lib/notify';
 import { createPostRevision } from '@/lib/revisions';
+import { siteImageUrl } from '@/lib/validation';
 
 const createPostSchema = z.object({
   title: z.string().trim().min(1).max(255),
   contentMd: z.string().min(1),
   summary: z.string().max(500).optional(),
-  coverImage: z.string().url().optional().nullable(),
+  coverImage: siteImageUrl.optional().nullable(),
   status: z.enum(['draft', 'published', 'scheduled']).default('draft'),
   scheduledAt: z.string().datetime().optional(),
   tagIds: z.array(z.string().uuid()).max(50).default([]),
