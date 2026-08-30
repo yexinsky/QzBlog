@@ -41,11 +41,13 @@ QzhouBlog/
 │   │   │   ├── projects/        # 项目 API
 │   │   │   ├── milestones/      # 时间线 API
 │   │   │   ├── learning/        # 学习路线 API
-│   │   │   └── upload/          # 文件上传 API
-│   │   ├── admin/               # 管理后台页面
+│   │   │   └── upload/          # 文件上传 API（多文件，写入附件库）
+│   │   ├── admin/               # 管理 API（/api/admin/*，页面路由已迁移至 /console）
+│   │   ├── files/               # 本地磁盘附件读取出口（storage=local 时）
+│   │   ├── console/             # 管理后台页面（v1.1 由 /admin 迁移，旧地址 301）
 │   │   ├── posts/               # 文章详情页
 │   │   ├── moments/             # 动态页
-│   │   ├── about/               # 关于页
+│   │   ├── about/               # 关于页（绑定 single_pages slug='about'）
 │   │   ├── projects/            # 项目页
 │   │   ├── timeline/            # 时间线页
 │   │   ├── learning/            # 学习路线页
@@ -57,14 +59,21 @@ QzhouBlog/
 │   │   ├── layout/              # 布局组件
 │   │   ├── article/             # 文章相关组件
 │   │   ├── comments/            # 评论组件
-│   │   └── admin/               # 管理后台组件
+│   │   ├── moments/             # 动态卡片组件
+│   │   └── console/             # 管理后台组件（/console）
 │   ├── hooks/                   # React Hooks
 │   ├── lib/                     # 工具函数
 │   │   ├── db.ts               # 数据库连接
 │   │   ├── auth.ts              # NextAuth 配置
+│   │   ├── admin-auth.ts        # /api/admin/* 公共鉴权守卫
+│   │   ├── settings.ts          # 站点设置（单行自动种子）
+│   │   ├── crypto.ts            # 敏感字段 AES-256-GCM 加密
+│   │   ├── notify/              # SMTP 邮件 + 飞书 Webhook 双通道通知
+│   │   ├── backup.ts            # 整站备份/恢复（dump + tar.gz）
+│   │   ├── revisions.ts         # 文章版本快照（≤20 条滚动淘汰）
 │   │   ├── markdown.ts          # Markdown 渲染管线
 │   │   ├── rate-limit.ts        # 频率限制
-│   │   └── storage.ts          # MinIO 存储
+│   │   └── storage.ts           # 附件存储双策略（本地磁盘 / S3+MinIO）
 │   └── db/
 │       └── schema.ts            # 数据库 Schema
 ├── drizzle/                     # Drizzle 迁移文件
@@ -81,13 +90,15 @@ QzhouBlog/
 核心数据表（详见 PRD 第 9 章）：
 
 - **users** - 博主用户表
-- **posts** - 文章表（含 content_md/content_html 双字段）
+- **posts** - 文章表（含 content_md/content_html 双字段；v1.1 增 category_id、visibility、allow_comment，status 含 recycled 回收站）
+- **categories** - 分类表（v1.1，文章单分类归属）
+- **attachments / attachment_groups** - 附件库与分组表（v1.1）
 - **tags** - 标签表
 - **post_tags** - 文章标签关联表
 - **series** - 系列表
 - **series_posts** - 系列文章关联表
-- **comments** - 评论表（支持 2 层嵌套）
-- **moments** - 动态表
+- **comments** - 评论表（支持 2 层嵌套；v1.1 泛化 target_type/target_id 支持文章与动态）
+- **moments** - 动态表（v1.1 增 content_md、images 多图）
 - **post_likes** - 文章点赞表
 - **moment_likes** - 动态点赞表
 - **projects** - 项目展示表
@@ -98,7 +109,10 @@ QzhouBlog/
 - **skills** - 技能栈表（含分类、熟练度）
 - **social_links** - 社交链接表
 - **work_experience** - 工作经历表
-- **site_settings** - 站点设置表（单行设计）
+- **site_settings** - 站点设置表（单行设计，含评论策略/SEO/SMTP/飞书/备份保留数）
+- **post_revisions** - 文章版本快照表（v1.1，每篇 ≤20 条）
+- **single_pages** - 自定义页面表（v1.1，about 等单页）
+- **backups** - 备份记录表（v1.1）
 
 ## 4. API 路由设计
 
@@ -151,7 +165,7 @@ QzhouBlog/
 ## 5. 安全策略
 
 1. **认证**: NextAuth.js + GitHub OAuth，JWT 双 Token 机制
-2. **授权**: Middleware 拦截 /admin/* 和 /api/admin/* 路由
+2. **授权**: Middleware 拦截 /console/* 页面路由（v1.1 由 /admin 迁移）；API 路由在各自 handler 内校验（公共守卫 lib/admin-auth.ts）
 3. **XSS 防护**: rehype-sanitize 过滤，白名单语法
 4. **SQL 注入**: Drizzle ORM 参数化查询
 5. **频率限制**: 评论/点赞 10次/min，登录 5次/min
